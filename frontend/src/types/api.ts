@@ -12,7 +12,7 @@ export interface Scene {
   imageFiles?: string[];
   /**
    * Source clip URL(s) used when {@link mediaMode} is "VIDEO_CLIP". Parallel
-   * to imageFiles — kept separately so a user can flip a scene's mode back
+   * to imageFiles kept separately so a user can flip a scene's mode back
    * and forth without losing the other side's work.
    */
   sourceVideoFiles?: string[];
