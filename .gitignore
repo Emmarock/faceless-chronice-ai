@@ -8,6 +8,10 @@ target/
 .idea/jarRepositories.xml
 .idea/compiler.xml
 .idea/libraries/
+.idea/workspace.xml
+.idea/dataSources.local.xml
+.idea/dataSources/
+.idea/inspectionProfiles/
 *.iws
 *.iml
 *.ipr
@@ -40,3 +44,6 @@ build/
 ### Local config (contains secrets) ###
 src/main/resources/application-dev.yaml
 src/main/resources/application-local.yaml
+
+### Pipeline runtime output (regenerated, often huge) ###
+output/

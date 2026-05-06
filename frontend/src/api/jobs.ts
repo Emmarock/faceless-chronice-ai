@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { apiBaseUrl, apiClient } from "./client";
 import type {
   GenerateJobRequest,
   JobFileDTO,
@@ -78,10 +78,14 @@ export async function listJobProgress(): Promise<JobProgressDTO[]> {
  * streams the bytes from S3 with no-cache headers, so a re-upload at the same
  * slot is reflected on the next render. Append a cache-buster to defeat the
  * disk cache after a mutation when reusing the same `<img>` element.
+ *
+ * Prefixed with {@link apiBaseUrl} so deployments where the frontend lives on
+ * a different origin (Vercel + Railway, etc.) load the bytes from the API
+ * host instead of 404-ing against the static-asset CDN.
  */
 export function imageStreamUrl(jobId: string, sceneId: number, index: number, version?: number): string {
   const v = version != null ? `?v=${version}` : "";
-  return `/api/job-file/${jobId}/scenes/${sceneId}/images/${index}/raw${v}`;
+  return `${apiBaseUrl}/api/job-file/${jobId}/scenes/${sceneId}/images/${index}/raw${v}`;
 }
 
 export async function replaceSceneImage(
@@ -135,7 +139,7 @@ export async function deleteSceneImage(
 
 export function sourceVideoStreamUrl(jobId: string, sceneId: number, version?: number): string {
   const v = version != null ? `?v=${version}` : "";
-  return `/api/job-file/${jobId}/scenes/${sceneId}/source-video/raw${v}`;
+  return `${apiBaseUrl}/api/job-file/${jobId}/scenes/${sceneId}/source-video/raw${v}`;
 }
 
 export async function replaceSourceVideo(
