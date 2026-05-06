@@ -1,0 +1,13 @@
+target/
+.idea/
+.git/
+.gitignore
+*.iml
+.DS_Store
+output/
+jobs/
+data/
+.github/
+docker-compose.yml
+elasticmq.conf
+**/*.md

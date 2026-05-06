@@ -1,0 +1,280 @@
+:root {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+  --bg: #0e0f12;
+  --surface: #15171b;
+  --surface-2: #0f1115;
+  --border: #1f2125;
+  --border-strong: #2a2d33;
+  --text: #e6e6e6;
+  --text-muted: #aaa;
+  --text-dim: #888;
+  --accent: #3b82f6;
+  --danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+button {
+  font-family: inherit;
+  font-size: 14px;
+  min-height: 36px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 16px;
+  max-width: 100%;
+}
+
+a {
+  color: #60a5fa;
+}
+
+/* ------- Layout helpers ------- */
+
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.app-header__brand {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.app-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.app-header__nav a {
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.app-header__nav a.active {
+  color: #fff;
+  font-weight: 600;
+}
+
+.app-header__user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header__user-email {
+  color: var(--text-muted);
+  font-size: 14px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.app-header__menu-btn {
+  display: none;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.app-main {
+  padding: 32px 28px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ------- Responsive: tablets ------- */
+@media (max-width: 900px) {
+  .app-header {
+    padding: 12px 16px;
+  }
+
+  .app-main {
+    padding: 24px 16px;
+  }
+
+  .app-header__user-email {
+    display: none;
+  }
+}
+
+/* ------- Responsive: phones ------- */
+@media (max-width: 640px) {
+  .app-header__menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-header__nav,
+  .app-header__user {
+    display: none;
+  }
+
+  .app-header.is-open {
+    flex-wrap: wrap;
+  }
+
+  .app-header.is-open .app-header__nav,
+  .app-header.is-open .app-header__user {
+    display: flex;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 12px;
+  }
+
+  .app-header.is-open .app-header__nav a {
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-header.is-open .app-header__user {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .app-main {
+    padding: 16px 12px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+  h2 {
+    font-size: 18px;
+  }
+}
+
+/* ------- Generic responsive utilities used across pages ------- */
+
+.row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.row-wrap--between {
+  justify-content: space-between;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 380px) {
+  .image-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 480px) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.btn-block-sm {
+  /* on phones, full-width primary actions */
+}
+
+@media (max-width: 480px) {
+  .btn-block-sm {
+    width: 100%;
+  }
+}
+
+/* Animated stripe used by ProgressBar while a job is in-flight. */
+@keyframes fc-progress-stripe {
+  from { background-position: 0 0; }
+  to   { background-position: 32px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [role="progressbar"] * {
+    animation: none !important;
+  }
+}
