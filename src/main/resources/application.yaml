@@ -1,0 +1,135 @@
+spring:
+  profiles:
+    # Local development loads application-dev.yaml (gitignored, holds secrets).
+    # In deployed environments set SPRING_PROFILES_ACTIVE=prod (or unset it).
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}   # create-drop / validate / update / none
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        naming:
+          physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
+        format_sql: ${JPA_FORMAT_SQL:false}
+        dialect: ${JPA_DIALECT:org.hibernate.dialect.MySQL8Dialect}
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION}
+      credentials:
+        # In ECS / EC2 the SDK picks up the task/instance role automatically.
+        # Leave AWS_ACCESS_KEY / AWS_SECRET_KEY unset in prod to use the role.
+        access-key: ${AWS_ACCESS_KEY:}
+        secret-key: ${AWS_SECRET_KEY:}
+      sqs:
+        # Empty string => SDK uses the real SQS endpoint for the configured region.
+        endpoint: ${SQS_ENDPOINT_URL:}
+        listener:
+          acknowledgement-mode: ${SQS_ACK_MODE:ON_SUCCESS}
+
+server:
+  port: ${SERVER_PORT:8090}
+
+chronicleai:
+  output-dir: ${CHRONICLEAI_OUTPUT_DIR:./output}
+  job-dir: ${CHRONICLEAI_JOB_DIR:./jobs}
+  ffmpeg-path: ${FFMPEG_PATH:ffmpeg}
+  queue:
+    audio-generation: ${QUEUE_AUDIO_GENERATION_URL}
+    image-generation: ${QUEUE_IMAGE_GENERATION_URL}
+    video-combine:    ${QUEUE_VIDEO_COMBINE_URL}
+    youtube-upload:   ${QUEUE_YOUTUBE_UPLOAD_URL}
+    tiktok-upload:    ${QUEUE_TIKTOK_UPLOAD_URL}
+    twitter-upload:   ${QUEUE_TWITTER_UPLOAD_URL}
+    facebook-upload:  ${QUEUE_FACEBOOK_UPLOAD_URL}
+  tts:
+    provider: ${TTS_PROVIDER:openai}   # piper | elevenlabs | yarngpt | openai | google
+  image:
+    provider: ${IMAGE_PROVIDER:pexels}  # pexels | openai
+  video:
+    # Source-clip provider used for scenes whose mediaMode == VIDEO_CLIP.
+    # pexels = stock footage (uses chronicleai.pexels.api-key).
+    # fal    = generative text-to-video via fal.ai's queue API (uses chronicleai.fal.*).
+    # sora   = OpenAI Sora text-to-video (reuses chronicleai.openai.api-key,
+    #          tunable via chronicleai.sora.*).
+    provider: ${VIDEO_PROVIDER:pexels}  # pexels | fal | sora
+  fal:
+    # fal.ai credentials. Required when chronicleai.video.provider=fal.
+    # Get a key at https://fal.ai/dashboard/keys.
+    api-key: ${FAL_KEY:}
+    # fal.ai model id. Browse models at https://fal.ai/models — pick a
+    # text-to-video one whose output schema is {video:{url:...}} or {video_url}.
+    model:   ${FAL_MODEL:fal-ai/minimax/hailuo-02/standard/text-to-video}
+    poll-interval-seconds: ${FAL_POLL_SECONDS:5}
+    timeout-seconds:       ${FAL_TIMEOUT_SECONDS:600}
+  sora:
+    # OpenAI Sora settings. API key is reused from chronicleai.openai.api-key.
+    # Models: sora-2 | sora-2-pro. Sizes are model-dependent — 1280x720 (landscape)
+    # matches the renderer's canvas; portrait sizes will pillarbox in the final video.
+    # Allowed seconds values per the Sora API are typically 4, 8, or 12.
+    model:   ${SORA_MODEL:sora-2}
+    size:    ${SORA_SIZE:1280x720}
+    seconds: ${SORA_SECONDS:8}
+    poll-interval-seconds: ${SORA_POLL_SECONDS:5}
+    timeout-seconds:       ${SORA_TIMEOUT_SECONDS:600}
+  piper-tts:
+    url: ${PIPER_TTS_URL:}
+  yarngpt-tts:
+    url: ${YARNGPT_TTS_URL:}
+    lang: ${YARNGPT_LANG:english}
+    speaker: ${YARNGPT_SPEAKER:tayo}
+  pexels:
+    api-key: ${PEXELS_KEY:}
+  elevenlabs:
+    api-key: ${ELEVENLABS_KEY:}
+    voice: ${ELEVENLABS_VOICE:onwK4e9ZLuTAKqWW03F9}
+    model: ${ELEVENLABS_MODEL:eleven_multilingual_v2}
+  openai:
+    api-key: ${OPENAI_KEY:}
+    model: ${OPENAI_MODEL:gpt-4}
+    temperature: ${OPENAI_TEMPERATURE:0.7}
+    tts-model:  ${OPENAI_TTS_MODEL:gpt-4o-mini-tts}
+    tts-voice:  ${OPENAI_TTS_VOICE:alloy}
+    tts-format: ${OPENAI_TTS_FORMAT:mp3}
+  google-tts:
+    api-key: ${GOOGLE_TTS_KEY:}
+    language-code:  ${GOOGLE_TTS_LANG:en-US}
+    voice:          ${GOOGLE_TTS_VOICE:en-US-Chirp-HD-F}
+    audio-encoding: ${GOOGLE_TTS_ENCODING:MP3}
+  aws:
+    # In prod, leave AWS_ACCESS_KEY / AWS_SECRET_KEY unset to use the task/instance role.
+    # Leave AWS_ENDPOINT_URL empty to talk to real AWS S3.
+    access-key: ${AWS_ACCESS_KEY:}
+    secret-key: ${AWS_SECRET_KEY:}
+    region: ${AWS_REGION}
+    s3-bucket: ${AWS_S3_BUCKET}
+    endpoint-url: ${AWS_ENDPOINT_URL:}
+  youtube:
+    client-id: ${YOUTUBE_CLIENT_ID:}
+    client-secret: ${YOUTUBE_CLIENT_SECRET:}
+  twitter:
+    client-id: ${TWITTER_CLIENT_ID:}
+    client-secret: ${TWITTER_CLIENT_SECRET:}
+  tiktok:
+    client-key: ${TIKTOK_CLIENT_KEY:}
+    client-secret: ${TIKTOK_CLIENT_SECRET:}
+  facebook:
+    # Meta for Developers → Apps → App ID / App Secret. The OAuth flow asks
+    # for page-management scopes (pages_show_list, pages_manage_posts,
+    # pages_read_engagement). publish_video was deprecated by Meta and is
+    # rejected by modern Graph API versions; uploads to /{page}/videos with
+    # a Page access token are authorized by pages_manage_posts.
+    app-id: ${FACEBOOK_APP_ID:}
+    app-secret: ${FACEBOOK_APP_SECRET:}
+    api-version: ${FACEBOOK_API_VERSION:v19.0}
+
+logging:
+  level:
+    io.awspring.cloud.sqs: ${LOG_LEVEL_SQS:INFO}
+    software.amazon.awssdk: ${LOG_LEVEL_AWS_SDK:WARN}
