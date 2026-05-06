@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # S3-compatible object storage for the dev environment.
+  #
+  # We previously used LocalStack here, but PERSISTENCE=1 is a LocalStack Pro
+  # feature — the community image silently ignores it, so every restart wiped
+  # the bucket while the MySQL Asset rows kept pointing at the now-missing
+  # keys. MinIO persists to /data by default and speaks the S3 API, so the
+  # AWS SDK code in S3StorageService works against it unchanged (path-style
+  # is already enabled when chronicleai.aws.endpoint-url is set).
+  #
+  # API:     http://localhost:9000
+  # Console: http://localhost:9001  (login with MINIO_ROOT_USER / *_PASSWORD)
+  minio:
+    image: minio/minio:RELEASE.2024-10-13T13-34-11Z
+    container_name: faceless_minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - "faceless_minio_data:/data"
+    restart: unless-stopped
+
+  # ElasticMQ — SQS-compatible message broker for local dev.
+  # The queues defined in elasticmq.conf mirror the names in application.yaml
+  # (chronicleai-dev-*) so SqsTemplate / @SqsListener pick them up unchanged.
+  # Set SQS_ENDPOINT_URL=http://localhost:9324 in your run config to point
+  # the AWS SDK at this container.
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.6.11
+    container_name: faceless_elasticmq
+    ports:
+      - "9324:9324"   # SQS API
+      - "9325:9325"   # admin UI / stats
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf:ro
+    restart: unless-stopped
+
+  image-gen:
+    build: ./image-gen
+    container_name: image-gen
+    ports:
+      - "7860:7860"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    environment:
+      # Realistic Vision V6 produces photorealistic human portraits far better
+      # than SD v1.5.  The noVAE variant requires the ft-MSE VAE below.
+      - MODEL_ID=SG161222/Realistic_Vision_V6.0_B1_noVAE
+      - VAE_ID=stabilityai/sd-vae-ft-mse
+      # - HF_TOKEN=your_token_here  # only needed for gated models
+    restart: unless-stopped
+
+  # 🔊 Coqui TTS (keep separate)
+  piper-tts-service:
+    build:
+      context: ./piper-tts
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
+
+  # 🇳🇬 YarnGPT — Nigerian-language TTS (Yoruba, Hausa, Igbo, Nigerian English)
+  yarngpt-tts-service:
+    build:
+      context: ./yarngpt-tts
+      dockerfile: Dockerfile
+    ports:
+      - "5004:5004"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+      - yarngpt-models:/models
+    restart: unless-stopped
+
+  # 🎞️ FFmpeg Renderer
+  render-service:
+    build: ./render-service
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+    volumes:
+      - ./data:/data
+
+volumes:
+  hf-cache:  # persists downloaded model weights across container restarts
+  faceless_minio_data: # persist s3 data (MinIO; survives container restarts)
+  yarngpt-models: # persist WavTokenizer yaml + ckpt for YarnGPT
