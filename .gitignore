@@ -44,6 +44,9 @@ build/
 ### Local config (contains secrets) ###
 src/main/resources/application-dev.yaml
 src/main/resources/application-local.yaml
+.env
+.env.local
+.env.*.local
 
 ### Pipeline runtime output (regenerated, often huge) ###
 output/
