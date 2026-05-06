@@ -7,8 +7,7 @@ export default defineConfig({
     port: 5173,
     // Vite blocks unknown Host headers as a CSRF-style protection. List bare
     // hostnames here (no scheme, no path). A leading "." matches any
-    // subdomain of that suffix — handy for ngrok URLs that rotate every
-    // restart.
+    // subdomain of that suffix — handy for ngrok URLs that rotate every restart.
     allowedHosts: [
       "localhost",
       ".ngrok-free.app",
