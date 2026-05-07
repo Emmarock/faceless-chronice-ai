@@ -22,7 +22,7 @@ services:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       - key: JPA_DDL_AUTO
-        value: update       # auto-evolve schema on deploy; switch to "validate" once stable
+        value: validate       # fail boot if schema drifts; manage migrations out-of-band (DB user lacks ALTER)
 
       # ----- AWS region for SQS (NOT for S3 — R2 is region-less) -----
       - key: AWS_REGION
