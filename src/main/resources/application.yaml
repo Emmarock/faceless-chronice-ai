@@ -103,13 +103,17 @@ chronicleai:
     voice:          ${GOOGLE_TTS_VOICE:en-US-Chirp-HD-F}
     audio-encoding: ${GOOGLE_TTS_ENCODING:MP3}
   aws:
-    # In prod, leave AWS_ACCESS_KEY / AWS_SECRET_KEY unset to use the task/instance role.
-    # Leave AWS_ENDPOINT_URL empty to talk to real AWS S3.
-    access-key: ${AWS_ACCESS_KEY:}
-    secret-key: ${AWS_SECRET_KEY:}
-    region: ${AWS_REGION}
-    s3-bucket: ${AWS_S3_BUCKET}
-    endpoint-url: ${AWS_ENDPOINT_URL:}
+    # S3 client config. The S3_* vars let you point S3 at a different
+    # provider (e.g. Cloudflare R2) while keeping SQS on real AWS — both
+    # clients used to share AWS_ACCESS_KEY/SECRET/REGION which conflicts
+    # when the providers differ. Each S3_* falls back to its AWS_*
+    # equivalent so existing single-provider deploys (ECS, MinIO) keep
+    # working unchanged.
+    access-key: ${S3_ACCESS_KEY:${AWS_ACCESS_KEY:}}
+    secret-key: ${S3_SECRET_KEY:${AWS_SECRET_KEY:}}
+    region: ${S3_REGION:${AWS_REGION}}
+    s3-bucket: ${S3_BUCKET:${AWS_S3_BUCKET}}
+    endpoint-url: ${S3_ENDPOINT_URL:${AWS_ENDPOINT_URL:}}
   youtube:
     client-id: ${YOUTUBE_CLIENT_ID:}
     client-secret: ${YOUTUBE_CLIENT_SECRET:}
@@ -128,6 +132,30 @@ chronicleai:
     app-id: ${FACEBOOK_APP_ID:}
     app-secret: ${FACEBOOK_APP_SECRET:}
     api-version: ${FACEBOOK_API_VERSION:v19.0}
+
+# Spring Boot Actuator. Render's health-check probe hits /actuator/health.
+# We also expose the liveness/readiness sub-probes so a future move to
+# Kubernetes (or Render's own future probe split) can target them directly.
+# Other endpoints (metrics, env, beans, ...) stay disabled by default —
+# enable them per-env via MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE if you
+# need to debug a running container.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # show-details=when-authorized would gate the component breakdown
+      # behind auth, but the app has no auth config yet. "never" keeps the
+      # response a plain {"status":"UP"} so we don't leak DB / S3 / SQS
+      # connection details to anyone who can reach the URL.
+      show-details: ${MANAGEMENT_HEALTH_SHOW_DETAILS:never}
+  info:
+    env:
+      enabled: true
 
 logging:
   level:

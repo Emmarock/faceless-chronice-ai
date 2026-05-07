@@ -23,10 +23,10 @@ services:
         value: prod
       - key: JPA_DDL_AUTO
         value: update       # auto-evolve schema on deploy; switch to "validate" once stable
+
+      # ----- AWS region for SQS (NOT for S3 — R2 is region-less) -----
       - key: AWS_REGION
         value: eu-west-2
-      - key: AWS_ENDPOINT_URL
-        value: ""           # empty => real AWS S3 (not MinIO)
       - key: SQS_ENDPOINT_URL
         value: ""           # empty => real AWS SQS
 
@@ -38,12 +38,28 @@ services:
       - key: DB_PASSWORD
         sync: false
 
-      # ----- AWS (S3 + SQS access for an IAM user) -----
+      # ----- AWS IAM user — SQS access only (S3 is on R2, see below) -----
+      # Policy: sqs:* scoped to the 7 chronicleai-prod-* queues.
       - key: AWS_ACCESS_KEY
         sync: false
       - key: AWS_SECRET_KEY
         sync: false
-      - key: AWS_S3_BUCKET
+
+      # ----- Cloudflare R2 (S3-compatible, 10 GB free, zero egress) -----
+      # Create a bucket + R2 API token at dash.cloudflare.com → R2.
+      # S3_ENDPOINT_URL format: https://<account-id>.r2.cloudflarestorage.com
+      # S3_REGION must be "auto" — R2 ignores it but the AWS SDK requires a value.
+      # These S3_* vars override the AWS_* fallback in application.yaml so the
+      # SQS client keeps using AWS creds while S3 talks to R2.
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ENDPOINT_URL
         sync: false
 
       # ----- SQS queue URLs (full https://sqs.<region>.amazonaws.com/<acct>/<name>) -----
