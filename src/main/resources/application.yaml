@@ -12,12 +12,12 @@ spring:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}   # create-drop / validate / update / none
     show-sql: ${JPA_SHOW_SQL:false}
+    database-platform: org.hibernate.dialect.TiDBDialect
     properties:
       hibernate:
         naming:
           physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
         format_sql: ${JPA_FORMAT_SQL:false}
-        dialect: ${JPA_DIALECT:org.hibernate.dialect.MySQL8Dialect}
   cloud:
     aws:
       region:
