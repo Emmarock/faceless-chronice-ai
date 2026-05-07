@@ -29,7 +29,8 @@ public class CorsConfig implements WebMvcConfigurer {
             "https://*.ngrok-free.dev," +
             "https://*.ngrok.app," +
             "https://*.ngrok.dev," +
-            "https://*.ngrok.io" +
+            "https://*.ngrok.io," +
+            "https://*.vercel.app" +
             "}")
     private String allowedOrigins;
 

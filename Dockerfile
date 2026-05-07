@@ -29,4 +29,6 @@ COPY --from=build --chown=chronicle:chronicle /workspace/app.jar /app/app.jar
 ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
 EXPOSE 8090
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+# Render (and most managed PaaS) inject $PORT for the app to bind to.
+# Falls back to 8090 so ECS / docker-compose keep working unchanged.
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar --server.port=${PORT:-8090}"]
