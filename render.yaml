@@ -15,7 +15,7 @@ services:
     # Frankfurt is closest to AWS eu-west-2 (where the SQS queues + S3 bucket
     # live by default per terraform/), so cross-region latency stays low.
     region: frankfurt
-    plan: standard           # 512 MB RAM / 0.5 CPU. Bump to standard if heap pressure shows up.
+    plan: standard           # 2 GB RAM / 1 CPU. Needed for parallel ffmpeg encodes in VideoCombineConsumer.
     healthCheckPath: /actuator/health
     autoDeploy: true        # redeploy on push to main
     envVars:

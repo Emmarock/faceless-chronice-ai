@@ -45,7 +45,7 @@ public class VideoCombineConsumer {
      */
     @SqsListener(value = "${chronicleai.queue.video-combine}",
                  messageVisibilitySeconds = "900",
-                 maxConcurrentMessages = "1")
+                 maxConcurrentMessages = "10")
     public void consume(String payload) throws Exception {
         log.info("VideoCombineConsumer received job");
 
