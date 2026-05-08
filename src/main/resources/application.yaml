@@ -18,6 +18,14 @@ spring:
         naming:
           physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
         format_sql: ${JPA_FORMAT_SQL:false}
+  flyway:
+    # Schema is owned by Flyway; Hibernate just validates.
+    # baseline-on-migrate=true lets Flyway adopt an existing prod schema on
+    # first run by stamping it at baseline-version (0) and then running V1+.
+    enabled: ${FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
   cloud:
     aws:
       region:

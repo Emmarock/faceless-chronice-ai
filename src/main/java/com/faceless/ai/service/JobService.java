@@ -20,7 +20,6 @@ public class JobService {
     private final ScriptRepository scriptRepository;
     private final AssetRepository assetRepository;
     private final VideoRepository videoRepository;
-    private final YouTubeUploadRepository youTubeUploadRepository;
     private final SocialConnectionRepository socialConnectionRepository;
 
     /**

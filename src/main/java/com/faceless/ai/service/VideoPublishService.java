@@ -5,8 +5,8 @@ import com.faceless.ai.entity.Video;
 import com.faceless.ai.model.VideoPublishResponse;
 import com.faceless.ai.model.VideoPublishResponse.PlatformResult;
 import com.faceless.ai.repository.SocialConnectionRepository;
+import com.faceless.ai.repository.SocialUploadRepository;
 import com.faceless.ai.repository.VideoRepository;
-import com.faceless.ai.repository.YouTubeUploadRepository;
 import com.faceless.ai.service.producer.PipelineProducer;
 import com.faceless.ai.service.producer.PipelineStage;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +33,7 @@ public class VideoPublishService {
 
     private final VideoRepository videoRepository;
     private final SocialConnectionRepository socialConnectionRepository;
-    private final YouTubeUploadRepository youTubeUploadRepository;
+    private final SocialUploadRepository socialUploadRepository;
     private final PipelineProducer pipelineProducer;
 
     public VideoPublishResponse publish(UUID videoId, String userId, List<SocialPlatform> platforms) {
@@ -67,9 +67,9 @@ public class VideoPublishService {
 
         switch (platform) {
             case YOUTUBE -> {
-                boolean alreadyUploaded = youTubeUploadRepository
-                        .findFirstByVideoId(video.getId())
-                        .map(u -> u.getYoutubeVideoId() != null && !u.getYoutubeVideoId().isBlank())
+                boolean alreadyUploaded = socialUploadRepository
+                        .findFirstByVideoIdAndPlatform(video.getId(), SocialPlatform.YOUTUBE)
+                        .map(u -> u.getProviderPostId() != null && !u.getProviderPostId().isBlank())
                         .orElse(false);
                 if (alreadyUploaded) {
                     return new PlatformResult(platform, "ALREADY_UPLOADED",
