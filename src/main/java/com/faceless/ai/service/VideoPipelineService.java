@@ -72,6 +72,9 @@ public class VideoPipelineService {
                 // Truncate to narration length even when the source is longer.
                 "-t", String.valueOf(durationSec),
                 "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-threads", "1",
+                "-x264-params", "rc-lookahead=10:ref=1",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-b:a", "192k",
@@ -117,6 +120,9 @@ public class VideoPipelineService {
         cmd.add("-map"); cmd.add("[v]");
         cmd.add("-map"); cmd.add(n + ":a");
         cmd.add("-c:v"); cmd.add("libx264");
+        cmd.add("-preset"); cmd.add("veryfast");
+        cmd.add("-threads"); cmd.add("1");
+        cmd.add("-x264-params"); cmd.add("rc-lookahead=10:ref=1");
         cmd.add("-pix_fmt"); cmd.add("yuv420p");
         cmd.add("-c:a"); cmd.add("aac");
         cmd.add("-b:a"); cmd.add("192k");

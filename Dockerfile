@@ -26,7 +26,7 @@ USER chronicle
 
 COPY --from=build --chown=chronicle:chronicle /workspace/app.jar /app/app.jar
 
-ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0"
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=40.0"
 EXPOSE 8090
 
 # Render (and most managed PaaS) inject $PORT for the app to bind to.
