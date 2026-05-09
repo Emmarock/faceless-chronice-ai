@@ -63,14 +63,6 @@
       <version>8.3.0</version>
     </dependency>
 
-    <!-- Flyway: owns schema migrations. JPA_DDL_AUTO stays "validate" so
-         Hibernate verifies the schema Flyway produced. -->
-    <dependency>
-      <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-core</artifactId>
-      <version>${flyway.version}</version>
-    </dependency>
-
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-mysql</artifactId>
