@@ -15,6 +15,22 @@
 -- For fresh DBs that never had youtube_uploads, set FLYWAY_ENABLED=false on
 -- the very first boot OR pre-create an empty youtube_uploads table; the
 -- INSERT becomes a no-op and the DROP IF EXISTS handles the rest.
+CREATE TABLE IF NOT EXISTS youtube_uploads (
+                                               id BINARY(16) NOT NULL,
+    video_id BINARY(16) NOT NULL,
+    youtube_video_id VARCHAR(255),
+    status VARCHAR(50),
+    uploaded_at TIMESTAMP NULL,
+    created_by VARCHAR(255),
+    created_on TIMESTAMP NULL,
+    last_modified_by VARCHAR(255),
+    last_modified_on TIMESTAMP NULL,
+
+    PRIMARY KEY (id),
+    INDEX idx_video_id (video_id),
+    CONSTRAINT chk_no_writes CHECK (1 = 0)
+    ) ENGINE=InnoDB;
+
 INSERT INTO social_uploads (
     id, video_id, platform, provider_post_id, status,
     uploaded_at, created_by, created_on, last_modified_by, last_modified_on

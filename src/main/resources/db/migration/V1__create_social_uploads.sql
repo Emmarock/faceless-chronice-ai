@@ -1,7 +1,7 @@
 -- Unified per-(video, platform) upload record. Replaces the per-platform
 -- youtube_uploads table. The (video_id, platform) UK is the dedupe lock used
 -- by every *UploadConsumer to make duplicate SQS deliveries safe.
-CREATE TABLE social_uploads (
+CREATE TABLE IF NOT EXISTS social_uploads (
     id                 BINARY(16)   NOT NULL,
     video_id           BINARY(16),
     platform           VARCHAR(32),
