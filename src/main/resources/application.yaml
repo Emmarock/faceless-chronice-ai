@@ -169,3 +169,4 @@ logging:
   level:
     io.awspring.cloud.sqs: ${LOG_LEVEL_SQS:INFO}
     software.amazon.awssdk: ${LOG_LEVEL_AWS_SDK:WARN}
+    org.flywaydb: DEBUG
