@@ -3,6 +3,8 @@ package com.faceless.ai.service.upload;
 import com.faceless.ai.entity.SocialPlatform;
 import com.faceless.ai.service.VideoUploadRequest;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Uploads a rendered video to a social platform on behalf of a user.
  *
@@ -15,8 +17,11 @@ public interface VideoUploadService {
     SocialPlatform platform();
 
     /**
-     * @return the platform-specific handle for the upload (e.g. YouTube video id,
-     *         TikTok publish_id, tweet id).
+     * @return platform-specific upload handle:
+     * - YouTube video id
+     * - TikTok publish_id
+     * - Twitter tweet id
+     * - Facebook video id
      */
-    String uploadVideo(VideoUploadRequest request) throws Exception;
+    CompletableFuture<String> uploadVideo(VideoUploadRequest request);
 }

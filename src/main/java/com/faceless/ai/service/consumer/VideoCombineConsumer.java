@@ -196,7 +196,7 @@ public class VideoCombineConsumer {
         // Publish AFTER both transactions above have committed — sending inside
         // saveVideo() caused the YouTubeUploadConsumer to receive the message before
         // the video row was visible in DB, resulting in "Video not found".
-        pipelineProducer.send(PipelineStage.YOUTUBE_UPLOAD, savedVideo.getId().toString());
+        pipelineProducer.send(PipelineStage.SOCIAL_UPLOAD, savedVideo.getId().toString());
 
         log.info("Video combine complete for job {}. Final video: {}", jobId, finalVideoUrl);
     }

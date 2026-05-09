@@ -69,13 +69,7 @@ services:
         sync: false
       - key: QUEUE_VIDEO_COMBINE_URL
         sync: false
-      - key: QUEUE_YOUTUBE_UPLOAD_URL
-        sync: false
-      - key: QUEUE_TIKTOK_UPLOAD_URL
-        sync: false
-      - key: QUEUE_TWITTER_UPLOAD_URL
-        sync: false
-      - key: QUEUE_FACEBOOK_UPLOAD_URL
+      - key: QUEUE_SOCIAL_UPLOAD_URL
         sync: false
 
       # ----- AI providers -----

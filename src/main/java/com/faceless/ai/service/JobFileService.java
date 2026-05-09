@@ -566,7 +566,7 @@ public class JobFileService {
         if (!allMediaReady)         return PipelineStage.IMAGE_GENERATION;
 
         if (!videoSaved)            return PipelineStage.VIDEO_COMBINE;
-        return PipelineStage.YOUTUBE_UPLOAD;
+        return PipelineStage.SOCIAL_UPLOAD;
     }
 
     /**

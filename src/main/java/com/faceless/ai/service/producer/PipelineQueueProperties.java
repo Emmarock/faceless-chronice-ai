@@ -24,20 +24,14 @@ public class PipelineQueueProperties {
     private String audioGeneration;
     private String imageGeneration;
     private String videoCombine;
-    private String youtubeUpload;
-    private String tiktokUpload;
-    private String twitterUpload;
-    private String facebookUpload;
+    private String socialUpload;
 
     public String urlFor(PipelineStage stage) {
         return switch (stage) {
             case AUDIO_GENERATION -> audioGeneration;
             case IMAGE_GENERATION -> imageGeneration;
             case VIDEO_COMBINE    -> videoCombine;
-            case YOUTUBE_UPLOAD   -> youtubeUpload;
-            case TIKTOK_UPLOAD    -> tiktokUpload;
-            case TWITTER_UPLOAD   -> twitterUpload;
-            case FACEBOOK_UPLOAD  -> facebookUpload;
+            case SOCIAL_UPLOAD -> socialUpload;
         };
     }
 }

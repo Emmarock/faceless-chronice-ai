@@ -2,6 +2,7 @@ package com.faceless.ai.service;
 
 import com.faceless.ai.entity.SocialPlatform;
 import com.faceless.ai.entity.Video;
+import com.faceless.ai.model.SocialUploadEvent;
 import com.faceless.ai.model.VideoPublishResponse;
 import com.faceless.ai.model.VideoPublishResponse.PlatformResult;
 import com.faceless.ai.repository.SocialConnectionRepository;
@@ -15,7 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Routes a finished {@link Video} to the upload pipeline for one or more
@@ -36,72 +39,59 @@ public class VideoPublishService {
     private final SocialUploadRepository socialUploadRepository;
     private final PipelineProducer pipelineProducer;
 
-    public VideoPublishResponse publish(UUID videoId, String userId, List<SocialPlatform> platforms) {
+    public VideoPublishResponse publish(UUID videoId, String userId, Set<SocialPlatform> platforms) {
         Video video = videoRepository.findById(videoId)
                 .orElseThrow(() -> new IllegalArgumentException("Video not found: " + videoId));
+        validateOwnership(video, userId);
 
-        if (video.getCreatedBy() != null && !video.getCreatedBy().equals(userId)) {
-            throw new IllegalArgumentException("Video " + videoId + " does not belong to user " + userId);
-        }
-
-        List<PlatformResult> results = new ArrayList<>();
         if (platforms == null || platforms.isEmpty()) {
-            return new VideoPublishResponse(videoId, results);
+            return new VideoPublishResponse(videoId, List.of());
         }
+        List<PlatformResult> results = platforms.stream()
+                        .map(platform -> validatePlatform(video, userId, platform))
+                        .toList();
 
-        for (SocialPlatform platform : platforms) {
-            results.add(publishOne(video, userId, platform));
+        Set<SocialPlatform> queueablePlatforms =
+                results.stream()
+                        .filter(r -> "QUEUED".equals(r.getStatus()))
+                        .map(PlatformResult::getPlatform)
+                        .collect(Collectors.toSet());
+
+        if (!queueablePlatforms.isEmpty()) {
+            SocialUploadEvent event = new SocialUploadEvent(video.getId(), queueablePlatforms);
+            pipelineProducer.publishVideo(PipelineStage.SOCIAL_UPLOAD, event);
+            log.info("Queued video {} for platforms {}", video.getId(), queueablePlatforms);
         }
-
         return new VideoPublishResponse(videoId, results);
     }
+    private PlatformResult validatePlatform(Video video, String userId, SocialPlatform platform) {
 
-    private PlatformResult publishOne(Video video, String userId, SocialPlatform platform) {
-        boolean connected = socialConnectionRepository
-                .findByUserIdAndPlatform(userId, platform)
-                .isPresent();
+        boolean connected = socialConnectionRepository.findByUserIdAndPlatform(userId, platform)
+                        .isPresent();
         if (!connected) {
-            return new PlatformResult(platform, "NOT_CONNECTED",
-                    "Connect " + platform + " on the Connections page first.");
+            return new PlatformResult(platform, "NOT_CONNECTED", "Connect " + platform + " on the Connections page first.");
         }
 
-        switch (platform) {
-            case YOUTUBE -> {
-                boolean alreadyUploaded = socialUploadRepository
-                        .findFirstByVideoIdAndPlatform(video.getId(), SocialPlatform.YOUTUBE)
-                        .map(u -> u.getProviderPostId() != null && !u.getProviderPostId().isBlank())
+        boolean alreadyUploaded =
+                socialUploadRepository
+                        .findFirstByVideoIdAndPlatform(video.getId(), platform)
+                        .map(upload -> upload.getProviderPostId() != null && !upload.getProviderPostId().isBlank())
                         .orElse(false);
-                if (alreadyUploaded) {
-                    return new PlatformResult(platform, "ALREADY_UPLOADED",
-                            "This video has already been uploaded to YouTube.");
-                }
-                pipelineProducer.send(PipelineStage.YOUTUBE_UPLOAD, video.getId().toString());
-                log.info("Queued video {} for YouTube upload (user {})", video.getId(), userId);
-                return new PlatformResult(platform, "QUEUED",
-                        "Upload queued — it will appear on YouTube shortly.");
-            }
-            case TWITTER -> {
-                pipelineProducer.send(PipelineStage.TWITTER_UPLOAD, video.getId().toString());
-                log.info("Queued video {} for Twitter upload (user {})", video.getId(), userId);
-                return new PlatformResult(platform, "QUEUED",
-                        "Tweet queued — it will post once Twitter finishes processing the media.");
-            }
-            case TIKTOK -> {
-                pipelineProducer.send(PipelineStage.TIKTOK_UPLOAD, video.getId().toString());
-                log.info("Queued video {} for TikTok upload (user {})", video.getId(), userId);
-                return new PlatformResult(platform, "QUEUED",
-                        "Upload queued — the video will appear in your TikTok inbox to publish.");
-            }
-            case FACEBOOK -> {
-                pipelineProducer.send(PipelineStage.FACEBOOK_UPLOAD, video.getId().toString());
-                log.info("Queued video {} for Facebook upload (user {})", video.getId(), userId);
-                return new PlatformResult(platform, "QUEUED",
-                        "Upload queued — the video will be posted to your Facebook Page shortly.");
-            }
-            default -> {
-                return new PlatformResult(platform, "UNSUPPORTED",
-                        platform + " uploads are not wired up yet.");
-            }
+        if (alreadyUploaded) {
+            return new PlatformResult(
+                    platform,
+                    "ALREADY_UPLOADED",
+                    "This video has already been uploaded to "
+                            + platform
+                            + "."
+            );
+        }
+        return new PlatformResult(platform, "QUEUED", "Upload queued for " + platform + ".");
+    }
+
+    private void validateOwnership(Video video, String userId) {
+        if (video.getCreatedBy() != null && !video.getCreatedBy().equals(userId)) {
+            throw new IllegalArgumentException("Video " + video.getId() + " does not belong to user " + userId);
         }
     }
 }

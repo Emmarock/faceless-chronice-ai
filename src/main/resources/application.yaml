@@ -8,6 +8,9 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
+  threads:
+    virtual:
+      enabled: true
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}   # create-drop / validate / update / none
@@ -52,10 +55,7 @@ chronicleai:
     audio-generation: ${QUEUE_AUDIO_GENERATION_URL}
     image-generation: ${QUEUE_IMAGE_GENERATION_URL}
     video-combine:    ${QUEUE_VIDEO_COMBINE_URL}
-    youtube-upload:   ${QUEUE_YOUTUBE_UPLOAD_URL}
-    tiktok-upload:    ${QUEUE_TIKTOK_UPLOAD_URL}
-    twitter-upload:   ${QUEUE_TWITTER_UPLOAD_URL}
-    facebook-upload:  ${QUEUE_FACEBOOK_UPLOAD_URL}
+    social-upload:   ${QUEUE_SOCIAL_UPLOAD_URL}
   tts:
     provider: ${TTS_PROVIDER:openai}   # piper | elevenlabs | yarngpt | openai | google
   image:

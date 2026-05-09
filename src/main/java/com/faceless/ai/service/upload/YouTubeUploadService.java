@@ -22,6 +22,9 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Uploads a rendered video to a specific user's YouTube channel.
@@ -45,13 +48,15 @@ public class YouTubeUploadService implements VideoUploadService {
     private final SocialConnectionRepository socialConnectionRepository;
     private final String clientId;
     private final String clientSecret;
+    private final ExecutorService virtualThreadExecutor;
 
     public YouTubeUploadService(SocialConnectionRepository socialConnectionRepository,
                                 @Value("${chronicleai.youtube.client-id}") String clientId,
-                                @Value("${chronicleai.youtube.client-secret}") String clientSecret) {
+                                @Value("${chronicleai.youtube.client-secret}") String clientSecret, ExecutorService virtualThreadExecutor) {
         this.socialConnectionRepository = socialConnectionRepository;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
+        this.virtualThreadExecutor = virtualThreadExecutor;
     }
 
     @Override
@@ -60,7 +65,17 @@ public class YouTubeUploadService implements VideoUploadService {
     }
 
     @Override
-    public String uploadVideo(VideoUploadRequest request) throws Exception {
+    public CompletableFuture<String> uploadVideo(VideoUploadRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return doUpload(request);
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }, virtualThreadExecutor);
+    }
+
+    public String doUpload(VideoUploadRequest request) throws Exception {
         SocialConnection connection = socialConnectionRepository
                 .findByUserIdAndPlatform(request.userId(), SocialPlatform.YOUTUBE)
                 .orElseThrow(() -> new IllegalStateException(

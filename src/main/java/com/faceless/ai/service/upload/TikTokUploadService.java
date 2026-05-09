@@ -11,7 +11,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -22,6 +24,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Posts a video to the user's TikTok account using the Content Posting API.
@@ -50,18 +55,19 @@ public class TikTokUploadService implements VideoUploadService {
 
     private static final int  STATUS_POLL_ATTEMPTS = 60;
     private static final long STATUS_POLL_INTERVAL_MS = 5_000;
-
+    private final ExecutorService virtualThreadExecutor;
     private final SocialConnectionRepository socialConnectionRepository;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String clientKey;
     private final String clientSecret;
 
-    public TikTokUploadService(SocialConnectionRepository socialConnectionRepository,
+    public TikTokUploadService(ExecutorService virtualThreadExecutor, SocialConnectionRepository socialConnectionRepository,
                                HttpClient httpClient,
                                ObjectMapper objectMapper,
                                @Value("${chronicleai.tiktok.client-key}") String clientKey,
                                @Value("${chronicleai.tiktok.client-secret}") String clientSecret) {
+        this.virtualThreadExecutor = virtualThreadExecutor;
         this.socialConnectionRepository = socialConnectionRepository;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
@@ -81,8 +87,20 @@ public class TikTokUploadService implements VideoUploadService {
      *         ignored — the inbox flow doesn't accept caption metadata; the
      *         user fills it in when they publish the draft.
      */
+
     @Override
-    public String uploadVideo(VideoUploadRequest request) throws Exception {
+    public CompletableFuture<String> uploadVideo(VideoUploadRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return doUpload(request);
+            } catch (Exception e) {
+
+                throw new CompletionException(e);
+            }
+        }, virtualThreadExecutor);
+    }
+
+    public String doUpload(VideoUploadRequest request) throws Exception {
         String userId = request.userId();
         Path videoFile = request.videoFile();
         SocialConnection connection = socialConnectionRepository
@@ -123,7 +141,19 @@ public class TikTokUploadService implements VideoUploadService {
         HttpRequest uploadReq = HttpRequest.newBuilder(URI.create(uploadUrl))
                 .header("Content-Type", "video/mp4")
                 .header("Content-Range", "bytes 0-" + (size - 1) + "/" + size)
-                .PUT(HttpRequest.BodyPublishers.ofByteArray(bytes))
+                .PUT(
+                        HttpRequest.BodyPublishers.ofInputStream(
+                                () -> {
+                                    try {
+                                        return new BufferedInputStream(
+                                                Files.newInputStream(videoFile)
+                                        );
+                                    } catch (IOException e) {
+                                        throw new UncheckedIOException(e);
+                                    }
+                                }
+                        )
+                )
                 .build();
         HttpResponse<String> uploadResp = httpClient.send(uploadReq, HttpResponse.BodyHandlers.ofString());
         if (uploadResp.statusCode() / 100 != 2) {

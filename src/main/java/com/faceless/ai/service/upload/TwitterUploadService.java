@@ -22,6 +22,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Posts a video as a tweet on the user's authenticated Twitter / X account.
@@ -70,17 +73,19 @@ public class TwitterUploadService implements VideoUploadService {
     private final ObjectMapper objectMapper;
     private final String clientId;
     private final String clientSecret;
+    private final ExecutorService virtualThreadExecutor;
 
     public TwitterUploadService(SocialConnectionRepository socialConnectionRepository,
                                 HttpClient httpClient,
                                 ObjectMapper objectMapper,
                                 @Value("${chronicleai.twitter.client-id}") String clientId,
-                                @Value("${chronicleai.twitter.client-secret}") String clientSecret) {
+                                @Value("${chronicleai.twitter.client-secret}") String clientSecret, ExecutorService virtualThreadExecutor) {
         this.socialConnectionRepository = socialConnectionRepository;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
+        this.virtualThreadExecutor = virtualThreadExecutor;
     }
 
     @Override
@@ -93,28 +98,42 @@ public class TwitterUploadService implements VideoUploadService {
      *         joined into the tweet text; either may be blank.
      */
     @Override
-    public String uploadVideo(VideoUploadRequest request) throws Exception {
-        String userId = request.userId();
-        Path videoFile = request.videoFile();
-        SocialConnection connection = socialConnectionRepository
-                .findByUserIdAndPlatform(userId, SocialPlatform.TWITTER)
-                .orElseThrow(() -> new IllegalStateException(
-                        "User " + userId + " has no TWITTER connection."));
+    public CompletableFuture<String> uploadVideo(VideoUploadRequest request) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String userId = request.userId();
+                Path videoFile = request.videoFile();
+                SocialConnection connection =
+                        socialConnectionRepository
+                                .findByUserIdAndPlatform(
+                                        userId,
+                                        SocialPlatform.TWITTER
+                                )
+                                .orElseThrow(() ->
+                                        new IllegalStateException(
+                                                "User "
+                                                        + userId
+                                                        + " has no TWITTER connection."
+                                        ));
+                String accessToken = ensureFreshAccessToken(connection);
+                long totalBytes = Files.size(videoFile);
 
-        String accessToken = ensureFreshAccessToken(connection);
+                log.info("Twitter video upload starting (user {}, {} bytes)", userId,totalBytes);
 
-        long totalBytes = Files.size(videoFile);
-        log.info("Twitter video upload starting (user {}, {} bytes)", userId, totalBytes);
+                String mediaId = mediaInit(accessToken, totalBytes);
+                mediaAppend(accessToken, mediaId, videoFile);
 
-        String mediaId = mediaInit(accessToken, totalBytes);
-        mediaAppend(accessToken, mediaId, videoFile);
-        JsonNode finalizeJson = mediaFinalize(accessToken, mediaId);
+                JsonNode finalizeJson = mediaFinalize(accessToken, mediaId);
+                if (finalizeJson.has("processing_info")) {
+                    waitForProcessing(accessToken,mediaId);
+                }
+                return createTweet(accessToken, caption(request.title(), request.description()), mediaId);
+            } catch (Exception e) {
 
-        if (finalizeJson.has("processing_info")) {
-            waitForProcessing(accessToken, mediaId);
-        }
+                throw new CompletionException(e);
+            }
 
-        return createTweet(accessToken, caption(request.title(), request.description()), mediaId);
+        }, virtualThreadExecutor);
     }
 
     private static String caption(String title, String description) {
