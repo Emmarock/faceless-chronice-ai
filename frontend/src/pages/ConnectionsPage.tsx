@@ -232,7 +232,7 @@ export function ConnectionsPage() {
     const clientKey = import.meta.env.VITE_TIKTOK_CLIENT_KEY as string | undefined;
     if (!clientKey) {
       throw new Error(
-        "VITE_TIKTOK_CLIENT_KEY is not configured — set it in the frontend env to connect TikTok.",
+        "unable to connect to tiktok at the moment, this feature is still in development mode.",
       );
     }
     const redirectUri = `${window.location.origin}/oauth/callback`;

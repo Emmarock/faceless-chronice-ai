@@ -15,6 +15,7 @@ export default defineConfig({
       ".ngrok.app",
       ".ngrok.dev",
       ".ngrok.io",
+      "https://faceless-chronicle.com",
     ],
     // Forward API + stream traffic to the Spring backend on the same origin
     // the frontend is served from. Mobile devices and ngrok tunnels can't

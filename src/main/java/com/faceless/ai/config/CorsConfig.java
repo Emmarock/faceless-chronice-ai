@@ -24,13 +24,7 @@ public class CorsConfig implements WebMvcConfigurer {
      */
     @Value("${chronicleai.cors.allowed-origins:" +
             "http://localhost:5173," +
-            "http://localhost:4173," +
-            "https://*.ngrok-free.app," +
-            "https://*.ngrok-free.dev," +
-            "https://*.ngrok.app," +
-            "https://*.ngrok.dev," +
-            "https://*.ngrok.io," +
-            "https://*.vercel.app" +
+            "https://faceless-chronicle.com" +
             "}")
     private String allowedOrigins;
 
