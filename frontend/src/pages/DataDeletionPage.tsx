@@ -86,8 +86,8 @@ export function DataDeletionPage() {
           <ol style={listStyle}>
             <li>
               Send an email to{" "}
-              <a href="mailto:privacy@facelesschronicle.ai?subject=Account%20Deletion%20Request">
-                privacy@facelesschronicle.ai
+              <a href="mailto:support@faceless-chronicle.com?subject=Account%20Deletion%20Request">
+                support@faceless-chronicle.com
               </a>{" "}
               from the email address associated with your account.
             </li>
@@ -144,7 +144,7 @@ export function DataDeletionPage() {
           <h2 style={h2Style}>Questions</h2>
           <p>
             For any questions about deletion or data access, email us at{" "}
-            <a href="mailto:privacy@facelesschronicle.ai">privacy@facelesschronicle.ai</a>. See
+            <a href="mailto:support@faceless-chronicle.com">support@faceless-chronicle.com</a>. See
             also our <Link to="/privacy-policy">Privacy Policy</Link> for details on what we
             collect and why.
           </p>

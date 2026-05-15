@@ -192,7 +192,7 @@ export function TermsOfServicePage() {
           <h2 style={h2Style}>15. Contact</h2>
           <p>
             Questions about these Terms? Email us at{" "}
-            <a href="mailto:legal@facelesschronicle.ai">legal@facelesschronicle.ai</a>.
+            <a href="mailto:support@faceless-chronicle.com">support@faceless-chronicle.com</a>.
           </p>
         </section>
 

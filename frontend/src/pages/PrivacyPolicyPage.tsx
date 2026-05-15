@@ -167,7 +167,7 @@ export function PrivacyPolicyPage() {
           <h2 style={h2Style}>11. Contact Us</h2>
           <p>
             If you have any questions about this Privacy Policy, please contact us at{" "}
-            <a href="mailto:privacy@facelesschronicle.ai">privacy@facelesschronicle.ai</a>.
+            <a href="mailto:support@faceless-chronicle.com">support@faceless-chronicle.com</a>.
           </p>
         </section>
 
