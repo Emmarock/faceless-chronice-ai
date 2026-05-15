@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listConnections } from "../api/social";
 import { listVideos, publishVideo, resolveStreamUrl } from "../api/videos";
-import { UploadPanel } from "../components/UploadPanel";
+import { PublishModal } from "../components/PublishModal";
 import type {
   SocialConnectionDTO,
   SocialPlatform,
@@ -145,7 +145,8 @@ function VideoCard({ video, connections }: VideoCardProps) {
       </div>
 
       {pickerOpen && (
-        <UploadPanel
+        <PublishModal
+          title={video.title?.trim() ? video.title : "(untitled)"}
           connections={connections}
           selected={selected}
           onToggle={togglePlatform}
@@ -153,6 +154,7 @@ function VideoCard({ video, connections }: VideoCardProps) {
           publishing={publishing}
           error={error}
           results={results}
+          onClose={() => setPickerOpen(false)}
         />
       )}
     </div>

@@ -9,7 +9,7 @@ import {
 } from "../api/assets";
 import { listConnections } from "../api/social";
 import { Pagination } from "../components/Pagination";
-import { UploadPanel } from "../components/UploadPanel";
+import { PublishModal } from "../components/PublishModal";
 import type {
   AssetSummaryDTO,
   AssetType,
@@ -363,21 +363,24 @@ function AssetCard({ asset, connections, isDeleting, onDelete }: AssetCardProps)
             {isDeleting ? "Deleting…" : "Delete"}
           </button>
         </div>
-        {canPublish && publishOpen && (
-          <UploadPanel
-            connections={connections}
-            selected={selected}
-            onToggle={togglePlatform}
-            onPublish={handlePublish}
-            publishing={publishing}
-            error={publishError}
-            results={results}
-          />
-        )}
       </div>
+      {canPublish && publishOpen && (
+        <PublishModal
+          title={asset.jobTitle ?? "Rendered clip"}
+          connections={connections}
+          selected={selected}
+          onToggle={togglePlatform}
+          onPublish={handlePublish}
+          publishing={publishing}
+          error={publishError}
+          results={results}
+          onClose={() => setPublishOpen(false)}
+        />
+      )}
     </div>
   );
 }
+
 
 function AssetImage({ src, alt }: { src: string; alt: string }) {
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
