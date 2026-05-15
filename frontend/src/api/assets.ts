@@ -1,9 +1,25 @@
 import { apiBaseUrl, apiClient } from "./client";
-import type { AssetSummaryDTO, AssetType } from "../types/api";
+import type { AssetSummaryDTO, AssetType, PagedAssetsDTO } from "../types/api";
 
-export async function listAssets(type?: AssetType): Promise<AssetSummaryDTO[]> {
-  const params = type ? { type } : undefined;
-  const { data } = await apiClient.get<AssetSummaryDTO[]>("/api/assets", { params });
+/**
+ * Query parameters for the paginated asset library listing. All fields are
+ * optional; the server applies sensible defaults (page=0, size=24) and
+ * clamps {@code size} to a sane range. {@code type} is the asset-type filter
+ * — omit it for the "All" view (which the server further denylists to skip
+ * voice / music / thumbnail rows).
+ */
+export interface ListAssetsParams {
+  type?: AssetType;
+  page?: number;
+  size?: number;
+}
+
+export async function listAssets(params: ListAssetsParams = {}): Promise<PagedAssetsDTO> {
+  const query: Record<string, string | number> = {};
+  if (params.type) query.type = params.type;
+  if (params.page != null) query.page = params.page;
+  if (params.size != null) query.size = params.size;
+  const { data } = await apiClient.get<PagedAssetsDTO>("/api/assets", { params: query });
   return data;
 }
 

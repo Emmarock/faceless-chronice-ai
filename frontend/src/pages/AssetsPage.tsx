@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { assetStreamUrl, deleteAsset, listAssets, uploadAsset } from "../api/assets";
+import { Pagination } from "../components/Pagination";
 import type { AssetSummaryDTO, AssetType } from "../types/api";
+
+const PAGE_SIZE = 24;
 
 type Filter = "ALL" | AssetType;
 
@@ -14,10 +17,7 @@ const FILTERS: FilterOption[] = [
   { value: "ALL", label: "All" },
   { value: "IMAGE", label: "Images" },
   { value: "SOURCE_VIDEO", label: "Source videos" },
-  { value: "VOICE", label: "Voice" },
-  { value: "MUSIC", label: "Music" },
   { value: "VIDEO_CLIP", label: "Rendered clips" },
-  { value: "THUMBNAIL", label: "Thumbnails" },
 ];
 
 const UPLOAD_OPTIONS: { type: AssetType; label: string; accept: string }[] = [
@@ -30,6 +30,9 @@ const UPLOAD_OPTIONS: { type: AssetType; label: string; accept: string }[] = [
 export function AssetsPage() {
   const [assets, setAssets] = useState<AssetSummaryDTO[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [page, setPage] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,12 +40,21 @@ export function AssetsPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const reload = useCallback(async (active: Filter) => {
+  const reload = useCallback(async (active: Filter, p: number) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listAssets(active === "ALL" ? undefined : active);
-      setAssets(data);
+      const data = await listAssets({
+        type: active === "ALL" ? undefined : active,
+        page: p,
+        size: PAGE_SIZE,
+      });
+      setAssets(data.items);
+      setTotalItems(data.totalItems);
+      setTotalPages(Math.max(1, data.totalPages));
+      // Clamp the page state if the server snapped us back (e.g. when the
+      // last page emptied after a delete).
+      if (data.page !== p) setPage(data.page);
     } catch (err) {
       setError(extractError(err));
     } finally {
@@ -51,27 +63,28 @@ export function AssetsPage() {
   }, []);
 
   useEffect(() => {
-    reload(filter);
-  }, [filter, reload]);
+    reload(filter, page);
+  }, [filter, page, reload]);
 
-  const counts = useMemo(() => {
-    const result = new Map<Filter, number>();
-    result.set("ALL", assets.length);
-    for (const a of assets) {
-      result.set(a.assetType, (result.get(a.assetType) ?? 0) + 1);
-    }
-    return result;
-  }, [assets]);
+  // Reset to the first page when the filter changes so we don't land on a
+  // page that doesn't exist for the new type.
+  const onFilterChange = (next: Filter) => {
+    setFilter(next);
+    setPage(0);
+  };
 
   const handleUpload = async (type: AssetType, file: File) => {
     setUploading(true);
     setMessage(null);
     setError(null);
     try {
-      const created = await uploadAsset(type, file);
-      setAssets((prev) => [created, ...prev]);
+      await uploadAsset(type, file);
       setMessage(`Uploaded ${file.name} to your library.`);
       setUploadOpen(false);
+      // Drop to page 0 so the new asset is visible (it's the newest, and
+      // results are sorted createdOn DESC).
+      if (page !== 0) setPage(0);
+      else await reload(filter, 0);
     } catch (err) {
       setError(extractError(err));
     } finally {
@@ -92,8 +105,10 @@ export function AssetsPage() {
     setError(null);
     try {
       await deleteAsset(asset.id);
-      setAssets((prev) => prev.filter((a) => a.id !== asset.id));
       setMessage("Asset deleted.");
+      // If we just emptied the current page, step back one.
+      if (assets.length === 1 && page > 0) setPage(page - 1);
+      else await reload(filter, page);
     } catch (err) {
       setError(extractError(err));
     } finally {
@@ -125,7 +140,6 @@ export function AssetsPage() {
 
       <div style={filterRow} role="tablist" aria-label="Filter by asset type">
         {FILTERS.map((f) => {
-          const count = counts.get(f.value) ?? 0;
           const active = filter === f.value;
           return (
             <button
@@ -133,7 +147,7 @@ export function AssetsPage() {
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setFilter(f.value)}
+              onClick={() => onFilterChange(f.value)}
               style={{
                 ...chip,
                 background: active ? "#1d4ed8" : "transparent",
@@ -142,7 +156,7 @@ export function AssetsPage() {
               }}
             >
               {f.label}
-              {f.value === filter && filter !== "ALL" ? "" : ` (${count})`}
+              {active && totalItems > 0 ? ` (${totalItems})` : ""}
             </button>
           );
         })}
@@ -167,16 +181,25 @@ export function AssetsPage() {
           </button>
         </div>
       ) : (
-        <div className="image-grid">
-          {assets.map((a) => (
-            <AssetCard
-              key={a.id}
-              asset={a}
-              isDeleting={deleting === a.id}
-              onDelete={() => handleDelete(a)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="image-grid">
+            {assets.map((a) => (
+              <AssetCard
+                key={a.id}
+                asset={a}
+                isDeleting={deleting === a.id}
+                onDelete={() => handleDelete(a)}
+              />
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {uploadOpen && (

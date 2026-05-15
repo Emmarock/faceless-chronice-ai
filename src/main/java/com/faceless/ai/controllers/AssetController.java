@@ -3,10 +3,12 @@ package com.faceless.ai.controllers;
 import com.faceless.ai.entity.Asset;
 import com.faceless.ai.entity.AssetType;
 import com.faceless.ai.model.AssetSummaryDTO;
+import com.faceless.ai.model.PagedAssetsDTO;
 import com.faceless.ai.service.AssetLibraryService;
 import com.faceless.ai.service.S3StorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -16,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
-import java.util.List;
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
@@ -49,10 +51,12 @@ public class AssetController {
     private final S3StorageService s3StorageService;
 
     @GetMapping
-    public ResponseEntity<List<AssetSummaryDTO>> listAssets(
+    public ResponseEntity<PagedAssetsDTO> listAssets(
             @RequestHeader("X-USER") String userId,
-            @RequestParam(value = "type", required = false) AssetType type) {
-        return ResponseEntity.ok(assetLibraryService.listAssets(userId, type));
+            @RequestParam(value = "type", required = false) AssetType type,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "24") int size) {
+        return ResponseEntity.ok(assetLibraryService.listAssets(userId, type, page, size));
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -94,20 +98,34 @@ public class AssetController {
      * unguessable, which is the same access-control posture used by the
      * existing per-scene streaming endpoints in {@code JobFileController}.
      *
-     * <p>Same 404-on-missing semantics as those endpoints so a broken
-     * thumbnail surfaces cleanly in the UI instead of a 500.
+     * <p>Cache headers: each asset id maps to exactly one immutable byte
+     * stream — a reuse / replace creates a new Asset row with a new id, it
+     * never mutates an existing one. So we set {@code public, max-age=1y,
+     * immutable} plus a strong ETag and short-circuit on {@code
+     * If-None-Match} with 304, which lets the browser (and any CDN in
+     * front of us) keep cached copies indefinitely.
      */
     @GetMapping("/{assetId}/raw")
     public ResponseEntity<StreamingResponseBody> streamAsset(
-            @PathVariable UUID assetId) {
+            @PathVariable UUID assetId,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
         Asset asset = assetLibraryService.findById(assetId);
         if (asset == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .header("X-Asset-Status", "missing")
                     .build();
         }
-        String url = asset.getUrl();
 
+        // Asset id is immutable per byte stream, so it's a sound strong ETag.
+        String etag = "\"" + assetId + "\"";
+        if (etag.equals(ifNoneMatch)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
+                    .eTag(etag)
+                    .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
+                    .build();
+        }
+
+        String url = asset.getUrl();
         if (!s3StorageService.exists(url)) {
             log.warn("Asset {} points at missing S3 object {} — returning 404",
                     assetId, url);
@@ -136,7 +154,8 @@ public class AssetController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(contentTypeFor(asset.getAssetType(), url));
         headers.setContentLength(total);
-        headers.setCacheControl("no-cache, no-store, must-revalidate");
+        headers.setETag(etag);
+        headers.setCacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
         return ResponseEntity.ok().headers(headers).body(body);
     }
 

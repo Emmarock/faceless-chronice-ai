@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { assetStreamUrl, listAssets } from "../api/assets";
+import { Pagination } from "./Pagination";
 import type { AssetSummaryDTO, AssetType } from "../types/api";
+
+const PICKER_PAGE_SIZE = 12;
 
 interface AssetPickerProps {
   /**
@@ -19,26 +22,38 @@ interface AssetPickerProps {
 
 export function AssetPicker({ type, excludeJobId, onCancel, onPick }: AssetPickerProps) {
   const [assets, setAssets] = useState<AssetSummaryDTO[]>([]);
+  const [page, setPage] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await listAssets(type);
-      setAssets(data.filter((a) => a.jobId !== excludeJobId));
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [type, excludeJobId]);
+  const load = useCallback(
+    async (p: number) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await listAssets({ type, page: p, size: PICKER_PAGE_SIZE });
+        // Excluding the current job is best-effort client-side filtering —
+        // if every row on the page matched the excluded job the page would
+        // look empty, but in practice the user's library spans many jobs.
+        setAssets(data.items.filter((a) => a.jobId !== excludeJobId));
+        setTotalItems(data.totalItems);
+        setTotalPages(Math.max(1, data.totalPages));
+        if (data.page !== p) setPage(data.page);
+      } catch (err) {
+        setError(extractError(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [type, excludeJobId],
+  );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(page);
+  }, [page, load]);
 
   const isImage = type === "IMAGE";
 
@@ -83,8 +98,9 @@ export function AssetPicker({ type, excludeJobId, onCancel, onPick }: AssetPicke
             </p>
           </div>
         ) : (
-          <div className="image-grid">
-            {assets.map((a) => (
+          <>
+            <div className="image-grid">
+              {assets.map((a) => (
               <button
                 key={a.id}
                 type="button"
@@ -136,7 +152,15 @@ export function AssetPicker({ type, excludeJobId, onCancel, onPick }: AssetPicke
                 )}
               </button>
             ))}
-          </div>
+            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={PICKER_PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </div>
     </div>

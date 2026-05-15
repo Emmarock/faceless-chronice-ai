@@ -127,3 +127,11 @@ export interface AssetSummaryDTO {
   streamUrl: string;
   createdAt: string;
 }
+
+export interface PagedAssetsDTO {
+  items: AssetSummaryDTO[];
+  page: number;
+  size: number;
+  totalItems: number;
+  totalPages: number;
+}

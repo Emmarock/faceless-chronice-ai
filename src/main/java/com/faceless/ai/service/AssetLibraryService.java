@@ -4,6 +4,7 @@ import com.faceless.ai.entity.Asset;
 import com.faceless.ai.entity.AssetType;
 import com.faceless.ai.entity.Job;
 import com.faceless.ai.model.AssetSummaryDTO;
+import com.faceless.ai.model.PagedAssetsDTO;
 import com.faceless.ai.model.VideoScript;
 import com.faceless.ai.repository.AssetRepository;
 import com.faceless.ai.repository.JobRepository;
@@ -11,6 +12,10 @@ import com.faceless.ai.repository.ScriptRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +25,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
@@ -57,13 +64,46 @@ public class AssetLibraryService {
     private final SourceVideoAssetService sourceVideoAssetService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public List<AssetSummaryDTO> listAssets(String userId, AssetType filter) {
-        List<Asset> rows = (filter == null)
-                ? assetRepository.findByCreatedByOrderByCreatedOnDesc(userId)
-                : assetRepository.findByCreatedByAndAssetTypeOrderByCreatedOnDesc(userId, filter);
+    /**
+     * Asset types that are managed internally by the pipeline but aren't
+     * useful in the user-facing library — voice / music tracks and
+     * thumbnails. The listing endpoint excludes these on both the
+     * unfiltered "All" view and any explicit {@code ?type=} filter that
+     * names one of them.
+     */
+    private static final Set<AssetType> HIDDEN_TYPES =
+            Collections.unmodifiableSet(EnumSet.of(AssetType.VOICE, AssetType.MUSIC, AssetType.THUMBNAIL));
+
+    /**
+     * Paginated listing of every asset the user owns. {@code page} is
+     * zero-indexed; {@code size} is clamped to a sensible range to keep
+     * any one response cheap to render. Job titles for the page's rows are
+     * resolved in a single batch.
+     */
+    public PagedAssetsDTO listAssets(String userId, AssetType filter, int page, int size) {
+        int safeSize = Math.max(1, Math.min(size, 100));
+        int safePage = Math.max(0, page);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdOn"));
+
+        // Hidden types are invisible even when requested explicitly — short-
+        // circuit to an empty page so a hand-crafted ?type=VOICE call doesn't
+        // bypass the denylist.
+        if (filter != null && HIDDEN_TYPES.contains(filter)) {
+            return PagedAssetsDTO.builder()
+                    .items(List.of())
+                    .page(safePage)
+                    .size(safeSize)
+                    .totalItems(0)
+                    .totalPages(0)
+                    .build();
+        }
+
+        Page<Asset> result = (filter == null)
+                ? assetRepository.findByCreatedByAndAssetTypeNotIn(userId, HIDDEN_TYPES, pageable)
+                : assetRepository.findByCreatedByAndAssetType(userId, filter, pageable);
 
         // Resolve job titles in one batch instead of N round trips.
-        Set<UUID> jobIds = rows.stream()
+        Set<UUID> jobIds = result.getContent().stream()
                 .map(Asset::getJobId)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -74,7 +114,7 @@ public class AssetLibraryService {
             }
         }
 
-        return rows.stream()
+        List<AssetSummaryDTO> items = result.getContent().stream()
                 .map(a -> AssetSummaryDTO.builder()
                         .id(a.getId())
                         .assetType(a.getAssetType())
@@ -85,6 +125,14 @@ public class AssetLibraryService {
                         .createdAt(a.getCreatedOn())
                         .build())
                 .toList();
+
+        return PagedAssetsDTO.builder()
+                .items(items)
+                .page(result.getNumber())
+                .size(result.getSize())
+                .totalItems(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .build();
     }
 
     /**
