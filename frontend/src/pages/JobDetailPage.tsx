@@ -15,8 +15,12 @@ import {
   sourceVideoStreamUrl,
   updateScript,
 } from "../api/jobs";
+import { reuseAssetInScene } from "../api/assets";
+import { AssetPicker } from "../components/AssetPicker";
 import { ProgressBar } from "../components/ProgressBar";
 import type {
+  AssetSummaryDTO,
+  AssetType,
   JobFileDTO,
   JobProgressDTO,
   MediaMode,
@@ -45,6 +49,11 @@ interface LightboxState {
   version: number;
 }
 
+interface PickerState {
+  sceneId: number;
+  type: AssetType;
+}
+
 export function JobDetailPage() {
   const { jobId = "" } = useParams();
   const location = useLocation();
@@ -63,6 +72,7 @@ export function JobDetailPage() {
   // (sceneId,index) slots that get replaced in place.
   const [imageVersion, setImageVersion] = useState(0);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+  const [picker, setPicker] = useState<PickerState | null>(null);
 
   const loadJob = useCallback(async () => {
     setLoading(true);
@@ -337,6 +347,26 @@ export function JobDetailPage() {
     }
   };
 
+  const handlePickFromLibrary = async (asset: AssetSummaryDTO) => {
+    if (!picker) return;
+    const { sceneId } = picker;
+    setMessage(null);
+    setError(null);
+    try {
+      await reuseAssetInScene(asset.id, jobId, sceneId);
+      const refreshed = await getJob(jobId);
+      mergeAssetsInto(refreshed);
+      setPicker(null);
+      setMessage(
+        `Added ${picker.type === "IMAGE" ? "image" : "video"} from your library to ${sceneLabel(
+          sceneId,
+        )}. Click Resume to re-render.`,
+      );
+    } catch (err) {
+      setError(extractError(err));
+    }
+  };
+
   const handleDeleteSourceVideo = async (sceneId: number) => {
     setMessage(null);
     setError(null);
@@ -383,6 +413,7 @@ export function JobDetailPage() {
           onDeleteImage={handleDeleteImage}
           onReplaceSourceVideo={handleReplaceSourceVideo}
           onDeleteSourceVideo={handleDeleteSourceVideo}
+          onPickFromLibrary={(sceneId, type) => setPicker({ sceneId, type })}
           onZoom={(sceneId, index, total) =>
             setLightbox({ jobId, sceneId, index, total, version: imageVersion })
           }
@@ -426,6 +457,15 @@ export function JobDetailPage() {
         scene and re-concatenates the final video.
       </p>
 
+      {picker && (
+        <AssetPicker
+          type={picker.type}
+          excludeJobId={jobId}
+          onCancel={() => setPicker(null)}
+          onPick={handlePickFromLibrary}
+        />
+      )}
+
       {lightbox && (
         <Lightbox
           state={lightbox}
@@ -461,6 +501,7 @@ interface ScriptEditorProps {
   onDeleteImage: (sceneId: number, index: number) => void;
   onReplaceSourceVideo: (sceneId: number, file: File) => void;
   onDeleteSourceVideo: (sceneId: number) => void;
+  onPickFromLibrary: (sceneId: number, type: AssetType) => void;
   onZoom: (sceneId: number, index: number, total: number) => void;
 }
 
@@ -479,6 +520,7 @@ function ScriptEditor({
   onDeleteImage,
   onReplaceSourceVideo,
   onDeleteSourceVideo,
+  onPickFromLibrary,
   onZoom,
 }: ScriptEditorProps) {
   const titleMode: MediaMode = script.titleScene?.mediaMode ?? "IMAGES";
@@ -498,6 +540,7 @@ function ScriptEditor({
           version={imageVersion}
           onReplace={(f) => onReplaceSourceVideo(sceneId, f)}
           onDelete={() => onDeleteSourceVideo(sceneId)}
+          onPickFromLibrary={() => onPickFromLibrary(sceneId, "SOURCE_VIDEO")}
         />
       );
     }
@@ -510,6 +553,7 @@ function ScriptEditor({
         onReplace={(idx, f) => onReplaceImage(sceneId, idx, f)}
         onAppend={(f) => onAppendImage(sceneId, f)}
         onDelete={(idx) => onDeleteImage(sceneId, idx)}
+        onPickFromLibrary={() => onPickFromLibrary(sceneId, "IMAGE")}
         onZoom={(idx, total) => onZoom(sceneId, idx, total)}
       />
     );
@@ -553,6 +597,7 @@ function ScriptEditor({
           onDeleteImage={(idx) => onDeleteImage(s.scene, idx)}
           onReplaceSourceVideo={(f) => onReplaceSourceVideo(s.scene, f)}
           onDeleteSourceVideo={() => onDeleteSourceVideo(s.scene)}
+          onPickFromLibrary={(type) => onPickFromLibrary(s.scene, type)}
           onZoom={(idx, total) => onZoom(s.scene, idx, total)}
         />
       ))}
@@ -614,6 +659,7 @@ interface SceneEditorProps {
   onDeleteImage: (index: number) => void;
   onReplaceSourceVideo: (file: File) => void;
   onDeleteSourceVideo: () => void;
+  onPickFromLibrary: (type: AssetType) => void;
   onZoom: (index: number, total: number) => void;
 }
 
@@ -630,6 +676,7 @@ function SceneEditor({
   onDeleteImage,
   onReplaceSourceVideo,
   onDeleteSourceVideo,
+  onPickFromLibrary,
   onZoom,
 }: SceneEditorProps) {
   const mode: MediaMode = scene.mediaMode ?? "IMAGES";
@@ -694,6 +741,7 @@ function SceneEditor({
           version={imageVersion}
           onReplace={onReplaceSourceVideo}
           onDelete={onDeleteSourceVideo}
+          onPickFromLibrary={() => onPickFromLibrary("SOURCE_VIDEO")}
         />
       ) : (
         <SegmentImages
@@ -704,6 +752,7 @@ function SceneEditor({
           onReplace={onReplaceImage}
           onAppend={onAppendImage}
           onDelete={onDeleteImage}
+          onPickFromLibrary={() => onPickFromLibrary("IMAGE")}
           onZoom={onZoom}
         />
       )}
@@ -752,9 +801,10 @@ interface SegmentVideoProps {
   version: number;
   onReplace: (file: File) => void;
   onDelete: () => void;
+  onPickFromLibrary: () => void;
 }
 
-function SegmentVideo({ jobId, sceneId, sourceVideo, version, onReplace, onDelete }: SegmentVideoProps) {
+function SegmentVideo({ jobId, sceneId, sourceVideo, version, onReplace, onDelete, onPickFromLibrary }: SegmentVideoProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [draggingOver, setDraggingOver] = useState(false);
   const [status, setStatus] = useState<"loading" | "ok" | "error">(sourceVideo ? "loading" : "ok");
@@ -786,23 +836,45 @@ function SegmentVideo({ jobId, sceneId, sourceVideo, version, onReplace, onDelet
         <div style={{ fontSize: 11, color: "#888", marginBottom: 12 }}>
           Run <em>Resume pipeline</em> to fetch a Pexels stock clip, or upload your own below.
         </div>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          style={{
-            ...appendTile,
-            height: 140,
-            borderColor: draggingOver ? "#3b82f6" : "#3b82f6",
-            background: draggingOver ? "#172033" : "#0f1115",
-          }}
-          title="Upload a video clip"
-        >
-          <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
-          <span style={{ fontSize: 12, marginTop: 4 }}>Upload video</span>
-          <span style={{ fontSize: 10, color: "#7a8db3", marginTop: 2 }}>
-            click or drop a .mp4 / .mov / .webm
-          </span>
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            style={{
+              ...appendTile,
+              height: 140,
+              flex: "1 1 220px",
+              borderColor: draggingOver ? "#3b82f6" : "#3b82f6",
+              background: draggingOver ? "#172033" : "#0f1115",
+            }}
+            title="Upload a video clip"
+          >
+            <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+            <span style={{ fontSize: 12, marginTop: 4 }}>Upload video</span>
+            <span style={{ fontSize: 10, color: "#7a8db3", marginTop: 2 }}>
+              click or drop a .mp4 / .mov / .webm
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onPickFromLibrary}
+            style={{
+              ...appendTile,
+              height: 140,
+              flex: "1 1 220px",
+              borderStyle: "solid",
+              borderColor: "#2a2d33",
+              color: "#cbd5e1",
+            }}
+            title="Reuse a video from your asset library"
+          >
+            <span style={{ fontSize: 22, lineHeight: 1 }}>↻</span>
+            <span style={{ fontSize: 12, marginTop: 4 }}>From library</span>
+            <span style={{ fontSize: 10, color: "#7a8db3", marginTop: 2 }}>
+              pick a video you've used before
+            </span>
+          </button>
+        </div>
         <input
           ref={fileRef}
           type="file"
@@ -896,6 +968,14 @@ function SegmentVideo({ jobId, sceneId, sourceVideo, version, onReplace, onDelet
           </button>
           <button
             type="button"
+            onClick={onPickFromLibrary}
+            style={tileBtn}
+            title="Replace with a video from your asset library"
+          >
+            From library
+          </button>
+          <button
+            type="button"
             onClick={onDelete}
             style={tileBtnDanger}
             title="Remove this source video — Resume will re-fetch from the provider"
@@ -927,6 +1007,7 @@ interface SegmentImagesProps {
   onReplace: (index: number, file: File) => void;
   onAppend: (file: File) => void;
   onDelete: (index: number) => void;
+  onPickFromLibrary: () => void;
   onZoom: (index: number, total: number) => void;
 }
 
@@ -938,6 +1019,7 @@ function SegmentImages({
   onReplace,
   onAppend,
   onDelete,
+  onPickFromLibrary,
   onZoom,
 }: SegmentImagesProps) {
   const count = imageFiles.length;
@@ -954,6 +1036,7 @@ function SegmentImages({
         </div>
         <div className="image-grid" style={{ marginTop: 12 }}>
           <AppendTile onPick={onAppend} />
+          <LibraryPickTile onPick={onPickFromLibrary} />
         </div>
       </div>
     );
@@ -988,8 +1071,31 @@ function SegmentImages({
           />
         ))}
         <AppendTile onPick={onAppend} />
+        <LibraryPickTile onPick={onPickFromLibrary} />
       </div>
     </div>
+  );
+}
+
+function LibraryPickTile({ onPick }: { onPick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      style={{
+        ...appendTile,
+        borderStyle: "solid",
+        borderColor: "#2a2d33",
+        color: "#cbd5e1",
+      }}
+      title="Reuse an image from your asset library"
+    >
+      <span style={{ fontSize: 22, lineHeight: 1 }}>↻</span>
+      <span style={{ fontSize: 12, marginTop: 4 }}>From library</span>
+      <span style={{ fontSize: 10, color: "#7a8db3", marginTop: 2 }}>
+        pick an image you've used before
+      </span>
+    </button>
   );
 }
 

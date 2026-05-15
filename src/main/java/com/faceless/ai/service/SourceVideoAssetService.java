@@ -99,6 +99,48 @@ public class SourceVideoAssetService {
         log.info("Deleted SOURCE_VIDEO for scene {} of job {}", sceneId, jobId);
     }
 
+    /**
+     * Replace (or create) a scene's source video by server-side-copying an
+     * existing S3 object — used when a user picks a library video for reuse.
+     * Same invalidation semantics as {@link #replaceSourceVideo}.
+     */
+    @Transactional
+    public void replaceSourceVideoFromS3(UUID jobId, int sceneId, String srcS3Url, String fileExtension, String requestedBy) {
+        Job job = jobService.getJob(jobId);
+        Asset existing = findSourceVideo(jobId, sceneId);
+
+        String ext = (fileExtension == null || fileExtension.isBlank()) ? ".mp4" : fileExtension;
+        String jobIdFlat = jobId.toString().replace("-", "");
+        String destKey = "jobs/" + jobIdFlat + "/source_videos/segment_" + sceneId
+                + "_reuse_" + System.currentTimeMillis() + ext;
+        String newUrl = s3StorageService.copy(srcS3Url, destKey);
+
+        if (existing == null) {
+            Asset asset = Asset.builder()
+                    .id(UUID.randomUUID())
+                    .jobId(jobId)
+                    .assetType(AssetType.SOURCE_VIDEO)
+                    .url(newUrl)
+                    .metadata(String.valueOf(sceneId))
+                    .createdBy(requestedBy)
+                    .lastModifiedBy(requestedBy)
+                    .createdOn(Instant.now())
+                    .lastModifiedOn(Instant.now())
+                    .build();
+            assetRepository.save(asset);
+            log.info("Created SOURCE_VIDEO for scene {} of job {} (reused from {})", sceneId, jobId, srcS3Url);
+        } else {
+            s3StorageService.delete(existing.getUrl());
+            existing.setUrl(newUrl);
+            existing.setLastModifiedBy(requestedBy);
+            existing.setLastModifiedOn(Instant.now());
+            assetRepository.save(existing);
+            log.info("Replaced SOURCE_VIDEO for scene {} of job {} (reused from {})", sceneId, jobId, srcS3Url);
+        }
+
+        invalidateScene(job, sceneId);
+    }
+
     public Asset requireSourceVideo(UUID jobId, int sceneId) {
         Asset asset = findSourceVideo(jobId, sceneId);
         if (asset == null) {

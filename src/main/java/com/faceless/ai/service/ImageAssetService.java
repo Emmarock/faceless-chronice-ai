@@ -141,6 +141,47 @@ public class ImageAssetService {
                 sceneImages.stream().filter(a -> indexOf(a) > index).count());
     }
 
+    /**
+     * Append a new image to a scene by server-side-copying an existing S3
+     * object (typically a library asset the user has chosen to reuse).
+     * Mirrors {@link #appendImage} but skips the upload-from-multipart step.
+     *
+     * @return the index the new image was inserted at
+     */
+    @Transactional
+    public int appendImageFromS3(UUID jobId, int sceneId, String srcS3Url, String fileExtension, String requestedBy) {
+        Job job = jobService.getJob(jobId);
+        List<Asset> sceneImages = imagesForScene(jobId, sceneId);
+        int nextIndex = sceneImages.size();
+        if (!sceneImages.isEmpty()) {
+            int maxIdx = sceneImages.stream().mapToInt(a -> indexOf(a)).max().orElse(-1);
+            nextIndex = Math.max(nextIndex, maxIdx + 1);
+        }
+
+        String ext = (fileExtension == null || fileExtension.isBlank()) ? ".jpg" : fileExtension;
+        String jobIdFlat = jobId.toString().replace("-", "");
+        String destKey = "jobs/" + jobIdFlat + "/images/segment_" + sceneId + "_" + nextIndex
+                + "_reuse_" + System.currentTimeMillis() + ext;
+        String newUrl = s3StorageService.copy(srcS3Url, destKey);
+
+        Asset asset = Asset.builder()
+                .id(UUID.randomUUID())
+                .jobId(jobId)
+                .assetType(AssetType.IMAGE)
+                .url(newUrl)
+                .metadata(sceneId + "_" + nextIndex)
+                .createdBy(requestedBy)
+                .lastModifiedBy(requestedBy)
+                .createdOn(Instant.now())
+                .lastModifiedOn(Instant.now())
+                .build();
+        assetRepository.save(asset);
+
+        invalidateScene(job, sceneId);
+        log.info("Appended reused image {}_{} for job {} from {}", sceneId, nextIndex, jobId, srcS3Url);
+        return nextIndex;
+    }
+
     public Asset requireImage(UUID jobId, int sceneId, int index) {
         return assetRepository
                 .findFirstByJobIdAndAssetTypeAndMetadata(jobId, AssetType.IMAGE, sceneId + "_" + index)

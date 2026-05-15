@@ -109,3 +109,21 @@ export interface VideoPublishResponse {
   videoId: string;
   results: VideoPublishResult[];
 }
+
+export type AssetType =
+  | "IMAGE"
+  | "SOURCE_VIDEO"
+  | "VOICE"
+  | "VIDEO_CLIP"
+  | "MUSIC"
+  | "THUMBNAIL";
+
+export interface AssetSummaryDTO {
+  id: string;
+  assetType: AssetType;
+  jobId?: string | null;
+  jobTitle?: string | null;
+  metadata?: string | null;
+  streamUrl: string;
+  createdAt: string;
+}

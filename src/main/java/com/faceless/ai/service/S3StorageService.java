@@ -10,6 +10,7 @@ import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
+import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -100,6 +101,30 @@ public class S3StorageService {
         String url = "s3://" + bucket + "/" + key;
         log.info("Uploaded to {}", url);
         return url;
+    }
+
+    /**
+     * Server-side copy of an existing object to a new key in the same bucket.
+     * Used by the asset library when a user reuses an asset in a new scene —
+     * the original library object stays put while the scene gets its own copy
+     * (so deletes from one side never break the other).
+     *
+     * @return public S3 URL of the new object: s3://{bucket}/{destKey}
+     */
+    public String copy(String srcS3Url, String destKey) {
+        String prefix = "s3://" + bucket + "/";
+        if (!srcS3Url.startsWith(prefix)) {
+            throw new IllegalArgumentException("Source URL is not in the configured bucket: " + srcS3Url);
+        }
+        String srcKey = srcS3Url.substring(prefix.length());
+        log.info("Copying s3://{}/{} → s3://{}/{}", bucket, srcKey, bucket, destKey);
+        s3Client.copyObject(CopyObjectRequest.builder()
+                .sourceBucket(bucket)
+                .sourceKey(srcKey)
+                .destinationBucket(bucket)
+                .destinationKey(destKey)
+                .build());
+        return prefix + destKey;
     }
 
     /**

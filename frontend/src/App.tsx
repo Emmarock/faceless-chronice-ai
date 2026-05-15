@@ -8,6 +8,7 @@ import { JobsListPage } from "./pages/JobsListPage";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { JobDetailPage } from "./pages/JobDetailPage";
 import { VideosListPage } from "./pages/VideosListPage";
+import { AssetsPage } from "./pages/AssetsPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
@@ -38,6 +39,7 @@ export function App() {
               <Route path="jobs/new" element={<CreateJobPage />} />
               <Route path="jobs/:jobId" element={<JobDetailPage />} />
               <Route path="videos" element={<VideosListPage />} />
+              <Route path="assets" element={<AssetsPage />} />
               <Route path="connections" element={<ConnectionsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

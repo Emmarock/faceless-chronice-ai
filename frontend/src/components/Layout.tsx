@@ -48,6 +48,9 @@ export function Layout() {
           <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
             Videos
           </NavLink>
+          <NavLink to="/assets" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+            Assets
+          </NavLink>
           <NavLink to="/connections" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
             Connections
           </NavLink>
