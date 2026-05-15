@@ -4,8 +4,11 @@ import com.faceless.ai.entity.Asset;
 import com.faceless.ai.entity.AssetType;
 import com.faceless.ai.model.AssetSummaryDTO;
 import com.faceless.ai.model.PagedAssetsDTO;
+import com.faceless.ai.model.VideoPublishRequest;
+import com.faceless.ai.model.VideoPublishResponse;
 import com.faceless.ai.service.AssetLibraryService;
 import com.faceless.ai.service.S3StorageService;
+import com.faceless.ai.service.VideoPublishService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.CacheControl;
@@ -49,6 +52,7 @@ public class AssetController {
 
     private final AssetLibraryService assetLibraryService;
     private final S3StorageService s3StorageService;
+    private final VideoPublishService videoPublishService;
 
     @GetMapping
     public ResponseEntity<PagedAssetsDTO> listAssets(
@@ -80,6 +84,21 @@ public class AssetController {
                 "assetId", assetId,
                 "jobId", jobId,
                 "sceneId", sceneId));
+    }
+
+    /**
+     * Queue a rendered clip ({@code VIDEO_CLIP} asset) for upload to one or
+     * more connected social platforms. Same response shape as the existing
+     * {@code POST /api/videos/{videoId}/publish} endpoint — per-platform
+     * status so partial successes are visible.
+     */
+    @PostMapping("/{assetId}/publish")
+    public ResponseEntity<VideoPublishResponse> publishClip(
+            @RequestHeader("X-USER") String userId,
+            @PathVariable UUID assetId,
+            @RequestBody VideoPublishRequest request) {
+        return ResponseEntity.accepted()
+                .body(videoPublishService.publishAsset(assetId, userId, request.getPlatforms()));
     }
 
     @DeleteMapping("/{assetId}")

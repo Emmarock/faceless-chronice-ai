@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { assetStreamUrl, deleteAsset, listAssets, uploadAsset } from "../api/assets";
+import {
+  assetStreamUrl,
+  deleteAsset,
+  listAssets,
+  publishAsset,
+  uploadAsset,
+} from "../api/assets";
+import { listConnections } from "../api/social";
 import { Pagination } from "../components/Pagination";
-import type { AssetSummaryDTO, AssetType } from "../types/api";
+import { UploadPanel } from "../components/UploadPanel";
+import type {
+  AssetSummaryDTO,
+  AssetType,
+  SocialConnectionDTO,
+  SocialPlatform,
+  VideoPublishResult,
+} from "../types/api";
 
 const PAGE_SIZE = 24;
 
@@ -39,6 +53,23 @@ export function AssetsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [connections, setConnections] = useState<SocialConnectionDTO[]>([]);
+
+  // Connections are stable for the session, so fetch once. Used by the
+  // per-clip publish flow inside AssetCard.
+  useEffect(() => {
+    let cancelled = false;
+    listConnections()
+      .then((c) => {
+        if (!cancelled) setConnections(c);
+      })
+      .catch(() => {
+        // Non-fatal: an empty connections list just disables the publish UI.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const reload = useCallback(async (active: Filter, p: number) => {
     setLoading(true);
@@ -187,6 +218,7 @@ export function AssetsPage() {
               <AssetCard
                 key={a.id}
                 asset={a}
+                connections={connections}
                 isDeleting={deleting === a.id}
                 onDelete={() => handleDelete(a)}
               />
@@ -215,16 +247,49 @@ export function AssetsPage() {
 
 interface AssetCardProps {
   asset: AssetSummaryDTO;
+  connections: SocialConnectionDTO[];
   isDeleting: boolean;
   onDelete: () => void;
 }
 
-function AssetCard({ asset, isDeleting, onDelete }: AssetCardProps) {
+function AssetCard({ asset, connections, isDeleting, onDelete }: AssetCardProps) {
   const isImage = asset.assetType === "IMAGE" || asset.assetType === "THUMBNAIL";
   const isVideo = asset.assetType === "SOURCE_VIDEO" || asset.assetType === "VIDEO_CLIP";
   const isAudio = asset.assetType === "VOICE" || asset.assetType === "MUSIC";
+  // Only rendered clips can be published as standalone uploads — source
+  // videos are job inputs and don't carry user-facing metadata.
+  const canPublish = asset.assetType === "VIDEO_CLIP";
   const src = assetStreamUrl(asset.id);
   const canDelete = !asset.jobId;
+
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<SocialPlatform>>(new Set());
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [results, setResults] = useState<VideoPublishResult[]>([]);
+
+  const togglePlatform = (p: SocialPlatform) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
+
+  const handlePublish = async () => {
+    if (selected.size === 0) return;
+    setPublishing(true);
+    setPublishError(null);
+    try {
+      const response = await publishAsset(asset.id, Array.from(selected));
+      setResults(response.results);
+    } catch (err) {
+      setPublishError(extractError(err));
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   return (
     <div style={tile}>
@@ -260,7 +325,7 @@ function AssetCard({ asset, isDeleting, onDelete }: AssetCardProps) {
           )}
         </div>
         <div style={{ fontSize: 11, color: "#666" }}>{formatDate(asset.createdAt)}</div>
-        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+        <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
           <a
             href={src}
             target="_blank"
@@ -270,6 +335,16 @@ function AssetCard({ asset, isDeleting, onDelete }: AssetCardProps) {
           >
             Open
           </a>
+          {canPublish && (
+            <button
+              type="button"
+              onClick={() => setPublishOpen((o) => !o)}
+              style={tileBtn}
+              title="Upload this clip to a connected social account"
+            >
+              {publishOpen ? "Close" : "⬆ Upload"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onDelete}
@@ -288,6 +363,17 @@ function AssetCard({ asset, isDeleting, onDelete }: AssetCardProps) {
             {isDeleting ? "Deleting…" : "Delete"}
           </button>
         </div>
+        {canPublish && publishOpen && (
+          <UploadPanel
+            connections={connections}
+            selected={selected}
+            onToggle={togglePlatform}
+            onPublish={handlePublish}
+            publishing={publishing}
+            error={publishError}
+            results={results}
+          />
+        )}
       </div>
     </div>
   );

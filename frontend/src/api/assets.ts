@@ -1,5 +1,11 @@
 import { apiBaseUrl, apiClient } from "./client";
-import type { AssetSummaryDTO, AssetType, PagedAssetsDTO } from "../types/api";
+import type {
+  AssetSummaryDTO,
+  AssetType,
+  PagedAssetsDTO,
+  SocialPlatform,
+  VideoPublishResponse,
+} from "../types/api";
 
 /**
  * Query parameters for the paginated asset library listing. All fields are
@@ -61,6 +67,22 @@ export async function reuseAssetInScene(
  * Append a cache buster when reusing the same {@code <img>} element after a
  * mutation.
  */
+/**
+ * Queue a rendered clip ({@code VIDEO_CLIP} asset) for upload to the
+ * caller's connected social accounts. Server-side ownership + type check;
+ * per-platform results returned so partial successes are visible.
+ */
+export async function publishAsset(
+  assetId: string,
+  platforms: SocialPlatform[],
+): Promise<VideoPublishResponse> {
+  const { data } = await apiClient.post<VideoPublishResponse>(
+    `/api/assets/${assetId}/publish`,
+    { platforms },
+  );
+  return data;
+}
+
 export function assetStreamUrl(assetId: string, version?: number): string {
   const v = version != null ? `?v=${version}` : "";
   return `${apiBaseUrl}/api/assets/${assetId}/raw${v}`;

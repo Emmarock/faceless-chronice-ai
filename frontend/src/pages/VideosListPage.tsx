@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listConnections } from "../api/social";
 import { listVideos, publishVideo, resolveStreamUrl } from "../api/videos";
+import { UploadPanel } from "../components/UploadPanel";
 import type {
   SocialConnectionDTO,
   SocialPlatform,
@@ -158,133 +159,6 @@ function VideoCard({ video, connections }: VideoCardProps) {
   );
 }
 
-interface UploadPanelProps {
-  connections: SocialConnectionDTO[];
-  selected: Set<SocialPlatform>;
-  onToggle: (p: SocialPlatform) => void;
-  onPublish: () => void;
-  publishing: boolean;
-  error: string | null;
-  results: VideoPublishResult[];
-}
-
-function UploadPanel({
-  connections,
-  selected,
-  onToggle,
-  onPublish,
-  publishing,
-  error,
-  results,
-}: UploadPanelProps) {
-  if (connections.length === 0) {
-    return (
-      <div style={panel}>
-        <div style={{ color: "#aaa" }}>
-          No connected accounts.{" "}
-          <Link to="/connections" style={{ color: "#60a5fa" }}>
-            Connect a platform first
-          </Link>
-          .
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={panel}>
-      <div style={{ fontSize: 13, color: "#aaa", marginBottom: 8 }}>
-        Upload to:
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-        {connections.map((c) => {
-          const isSelected = selected.has(c.platform);
-          return (
-            <button
-              key={c.id}
-              onClick={() => onToggle(c.platform)}
-              style={{
-                ...chip,
-                background: isSelected ? "#1d4ed8" : "#1f2937",
-                borderColor: isSelected ? "#3b82f6" : "#2a2d33",
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>{platformLabel(c.platform)}</span>
-              {c.accountHandle && (
-                <span style={{ color: "#aaa", marginLeft: 6, fontSize: 11 }}>
-                  {c.accountHandle}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-      <button
-        onClick={onPublish}
-        disabled={publishing || selected.size === 0}
-        style={{
-          ...primaryBtn,
-          opacity: publishing || selected.size === 0 ? 0.6 : 1,
-        }}
-      >
-        {publishing
-          ? "Publishing..."
-          : `Publish to ${selected.size} ${selected.size === 1 ? "account" : "accounts"}`}
-      </button>
-      {error && <div style={{ color: "#ff6b6b", marginTop: 10 }}>{error}</div>}
-      {results.length > 0 && (
-        <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
-          {results.map((r) => (
-            <div
-              key={r.platform}
-              style={{
-                fontSize: 12,
-                color: statusColor(r.status),
-                background: "#0f1115",
-                border: "1px solid #2a2d33",
-                borderRadius: 6,
-                padding: "6px 10px",
-              }}
-            >
-              <strong>{platformLabel(r.platform)}</strong>: {r.status}
-              {r.message ? ` — ${r.message}` : ""}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "QUEUED":
-      return "#4ade80";
-    case "ALREADY_UPLOADED":
-      return "#60a5fa";
-    case "NOT_CONNECTED":
-    case "UNSUPPORTED":
-      return "#fbbf24";
-    default:
-      return "#aaa";
-  }
-}
-
-function platformLabel(p: SocialPlatform): string {
-  switch (p) {
-    case "YOUTUBE":
-      return "YouTube";
-    case "FACEBOOK":
-      return "Facebook";
-    case "TIKTOK":
-      return "TikTok";
-    case "TWITTER":
-      return "Twitter / X";
-    default:
-      return p;
-  }
-}
-
 function formatDuration(seconds: number): string {
   if (!seconds || seconds < 0) return "—";
   const m = Math.floor(seconds / 60);
@@ -317,14 +191,6 @@ const card: React.CSSProperties = {
   padding: 16,
 };
 
-const panel: React.CSSProperties = {
-  marginTop: 12,
-  padding: 12,
-  background: "#0f1115",
-  border: "1px solid #1f2125",
-  borderRadius: 6,
-};
-
 const uploadBtn: React.CSSProperties = {
   position: "absolute",
   top: 10,
@@ -338,23 +204,4 @@ const uploadBtn: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 13,
   backdropFilter: "blur(4px)",
-};
-
-const chip: React.CSSProperties = {
-  border: "1px solid",
-  borderRadius: 999,
-  padding: "6px 12px",
-  cursor: "pointer",
-  color: "#e6e6e6",
-  fontSize: 13,
-};
-
-const primaryBtn: React.CSSProperties = {
-  background: "#3b82f6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontWeight: 600,
 };
