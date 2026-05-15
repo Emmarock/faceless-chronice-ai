@@ -180,6 +180,15 @@ public class AssetLibraryService {
         log.info("Deleted standalone library asset {} for user {}", assetId, userId);
     }
 
+    /**
+     * Lookup without an ownership check — used by the streaming endpoint,
+     * which (intentionally) authorises on URL knowledge alone. Returns
+     * {@code null} when the row is gone.
+     */
+    public Asset findById(UUID assetId) {
+        return assetRepository.findById(assetId).orElse(null);
+    }
+
     public Asset requireOwned(String userId, UUID assetId) {
         Asset asset = assetRepository.findById(assetId)
                 .orElseThrow(() -> new IllegalArgumentException("Asset not found: " + assetId));

@@ -87,20 +87,30 @@ public class AssetController {
     }
 
     /**
-     * Streams the bytes of any asset the caller owns. Same 404-on-missing
-     * semantics as the per-scene streaming endpoints so a broken thumbnail
-     * surfaces cleanly in the UI instead of a 500.
+     * Streams the bytes of an asset by id. Deliberately does NOT require
+     * {@code X-USER} — browser {@code <img>}/{@code <video>} tags can't
+     * carry custom headers through axios interceptors, so any header gate
+     * here would 401 every image in the library UI. The asset UUID is
+     * unguessable, which is the same access-control posture used by the
+     * existing per-scene streaming endpoints in {@code JobFileController}.
+     *
+     * <p>Same 404-on-missing semantics as those endpoints so a broken
+     * thumbnail surfaces cleanly in the UI instead of a 500.
      */
     @GetMapping("/{assetId}/raw")
     public ResponseEntity<StreamingResponseBody> streamAsset(
-            @RequestHeader("X-USER") String userId,
             @PathVariable UUID assetId) {
-        Asset asset = assetLibraryService.requireOwned(userId, assetId);
+        Asset asset = assetLibraryService.findById(assetId);
+        if (asset == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .header("X-Asset-Status", "missing")
+                    .build();
+        }
         String url = asset.getUrl();
 
         if (!s3StorageService.exists(url)) {
-            log.warn("Asset {} for user {} points at missing S3 object {} — returning 404",
-                    assetId, userId, url);
+            log.warn("Asset {} points at missing S3 object {} — returning 404",
+                    assetId, url);
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .header("X-Asset-Status", "missing")
                     .build();
