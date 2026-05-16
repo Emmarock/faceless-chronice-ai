@@ -24,8 +24,8 @@ export function CreateJobPage() {
   const navigate = useNavigate();
   const [question, setQuestion] = useState("");
   const [style, setStyle] = useState(STYLE_OPTIONS[0]);
-  const [videoFormat, setVideoFormat] = useState<VideoFormat>("VIDEO");
-  const [durationSeconds, setDurationSeconds] = useState<number>(VIDEO_DEFAULT_SECONDS);
+  const [videoFormat, setVideoFormat] = useState<VideoFormat>("REELS");
+  const [durationSeconds, setDurationSeconds] = useState<number>(REELS_DEFAULT_SECONDS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,18 +94,18 @@ export function CreateJobPage() {
         <Field label="Format">
           <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Video format">
             <FormatButton
+                active={videoFormat === "REELS"}
+                onClick={() => handleFormatChange("REELS")}
+                title="Single-scene short video, ≤30s — for Shorts / Reels / TikTok"
+                label="Reels"
+                sub="≤30s, 1 scene"
+            />
+            <FormatButton
               active={videoFormat === "VIDEO"}
               onClick={() => handleFormatChange("VIDEO")}
               title="Multi-scene, multi-minute long-form video"
               label="Video"
               sub="long-form, multi-scene"
-            />
-            <FormatButton
-              active={videoFormat === "REELS"}
-              onClick={() => handleFormatChange("REELS")}
-              title="Single-scene short video, ≤30s — for Shorts / Reels / TikTok"
-              label="Reels"
-              sub="≤30s, 1 scene"
             />
           </div>
         </Field>
