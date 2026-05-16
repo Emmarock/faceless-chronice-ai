@@ -1,9 +1,12 @@
 package com.faceless.ai.service.authorization;
 
+import com.faceless.ai.entity.AuthProvider;
 import com.faceless.ai.entity.SocialPlatform;
+import com.faceless.ai.model.OAuthIdentity;
 import com.faceless.ai.model.SocialConnectionDTO;
 import com.faceless.ai.model.SocialConnectionRequest;
 import com.faceless.ai.service.SocialConnectionService;
+import com.faceless.ai.service.UserService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -37,17 +40,20 @@ public class YouTubeOAuthService {
     private static final String GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
 
     private final SocialConnectionService socialConnectionService;
+    private final UserService userService;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String clientId;
     private final String clientSecret;
 
     public YouTubeOAuthService(SocialConnectionService socialConnectionService,
+                               UserService userService,
                                HttpClient httpClient,
                                ObjectMapper objectMapper,
                                @Value("${chronicleai.youtube.client-id}") String clientId,
                                @Value("${chronicleai.youtube.client-secret}") String clientSecret) {
         this.socialConnectionService = socialConnectionService;
+        this.userService = userService;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.clientId = clientId;
@@ -94,7 +100,25 @@ public class YouTubeOAuthService {
         }
 
         Instant expiresAt = expiresIn > 0 ? Instant.now().plusSeconds(expiresIn) : null;
-        String accountHandle = lookupAccountHandle(accessToken);
+        GoogleUserInfo info = lookupUserInfo(accessToken);
+        String accountHandle = info == null ? null : info.toHandle();
+
+        // Record the identity before persisting the social connection so that
+        // the connection row's userId is unquestionably backed by a known
+        // AppUser. If the userinfo lookup failed (no `sub` claim) we skip
+        // silently — the social connection itself doesn't depend on it.
+        if (info != null && info.id() != null) {
+            userService.recordOAuthIdentity(
+                    userId,
+                    new OAuthIdentity(
+                            AuthProvider.GOOGLE,
+                            info.id(),
+                            info.email(),
+                            info.name(),
+                            info.picture()));
+        } else {
+            log.warn("Skipping AppUser record — Google userinfo had no `sub` for userId {}", userId);
+        }
 
         SocialConnectionRequest req = new SocialConnectionRequest(
                 SocialPlatform.YOUTUBE,
@@ -106,7 +130,7 @@ public class YouTubeOAuthService {
         return socialConnectionService.upsert(userId, req);
     }
 
-    private String lookupAccountHandle(String accessToken) {
+    private GoogleUserInfo lookupUserInfo(String accessToken) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(GOOGLE_USERINFO_URL))
                     .header("Authorization", "Bearer " + accessToken)
@@ -118,13 +142,22 @@ public class YouTubeOAuthService {
                 return null;
             }
             JsonNode json = objectMapper.readTree(response.body());
-            String name = textOrNull(json, "name");
-            String email = textOrNull(json, "email");
-            if (name != null && email != null) return name + " (" + email + ")";
-            return name != null ? name : email;
+            return new GoogleUserInfo(
+                    textOrNull(json, "id"),
+                    textOrNull(json, "email"),
+                    textOrNull(json, "name"),
+                    textOrNull(json, "picture"));
         } catch (Exception e) {
             log.debug("userinfo lookup failed: {}", e.getMessage());
             return null;
+        }
+    }
+
+    private record GoogleUserInfo(String id, String email, String name, String picture) {
+        /** Same human-readable handle the connection card showed before this refactor. */
+        String toHandle() {
+            if (name != null && email != null) return name + " (" + email + ")";
+            return name != null ? name : email;
         }
     }
 

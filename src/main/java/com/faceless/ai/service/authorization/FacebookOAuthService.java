@@ -1,10 +1,13 @@
 package com.faceless.ai.service.authorization;
 
+import com.faceless.ai.entity.AuthProvider;
 import com.faceless.ai.entity.SocialPlatform;
 import com.faceless.ai.exceptions.NoFacebookPageException;
+import com.faceless.ai.model.OAuthIdentity;
 import com.faceless.ai.model.SocialConnectionDTO;
 import com.faceless.ai.model.SocialConnectionRequest;
 import com.faceless.ai.service.SocialConnectionService;
+import com.faceless.ai.service.UserService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +52,7 @@ import java.nio.charset.StandardCharsets;
 public class FacebookOAuthService {
 
     private final SocialConnectionService socialConnectionService;
+    private final UserService userService;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final String appId;
@@ -56,12 +60,14 @@ public class FacebookOAuthService {
     private final String apiVersion;
 
     public FacebookOAuthService(SocialConnectionService socialConnectionService,
+                                UserService userService,
                                 HttpClient httpClient,
                                 ObjectMapper objectMapper,
                                 @Value("${chronicleai.facebook.app-id}") String appId,
                                 @Value("${chronicleai.facebook.app-secret}") String appSecret,
                                 @Value("${chronicleai.facebook.api-version:v25.0}") String apiVersion) {
         this.socialConnectionService = socialConnectionService;
+        this.userService = userService;
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
         this.appId = appId;
@@ -75,6 +81,27 @@ public class FacebookOAuthService {
 
         String shortLivedUserToken = exchangeCodeForUserToken(code, redirectUri);
         String longLivedUserToken = exchangeForLongLivedUserToken(shortLivedUserToken);
+
+        // Identity (the connecting human, not the Page they manage) is
+        // recorded *before* the Page lookup so users who haven't yet created a
+        // Page still get an AppUser row — they can come back after creating a
+        // Page without needing to re-auth from scratch. If /me itself fails we
+        // log and continue; the social connection upsert below is the
+        // user-facing primary action.
+        FacebookMe me = lookupMe(longLivedUserToken);
+        if (me != null && me.id() != null) {
+            userService.recordOAuthIdentity(
+                    userId,
+                    new OAuthIdentity(
+                            AuthProvider.FACEBOOK,
+                            me.id(),
+                            me.email(),
+                            me.name(),
+                            me.pictureUrl()));
+        } else {
+            log.warn("Skipping AppUser record — Facebook /me had no id for userId {}", userId);
+        }
+
         PageToken page = pickFirstPage(longLivedUserToken);
 
         SocialConnectionRequest req = new SocialConnectionRequest(
@@ -192,5 +219,36 @@ public class FacebookOAuthService {
         return URLEncoder.encode(s, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Fetches the connecting human's own Facebook profile (separate from the
+     * Pages they manage). The {@code email} field requires the {@code email}
+     * permission scope; we ask for it on connect but Meta lets users withhold
+     * it, hence the nullable return value.
+     */
+    private FacebookMe lookupMe(String userToken) {
+        try {
+            String url = "https://graph.facebook.com/" + apiVersion + "/me"
+                    + "?fields=" + enc("id,name,email,picture.type(large)")
+                    + "&access_token=" + enc(userToken);
+            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
+            HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (res.statusCode() / 100 != 2) {
+                log.debug("Facebook /me non-2xx ({}): {}", res.statusCode(), res.body());
+                return null;
+            }
+            JsonNode json = objectMapper.readTree(res.body());
+            String pictureUrl = json.path("picture").path("data").path("url").asText(null);
+            return new FacebookMe(
+                    textOrNull(json, "id"),
+                    textOrNull(json, "name"),
+                    textOrNull(json, "email"),
+                    pictureUrl == null || pictureUrl.isBlank() ? null : pictureUrl);
+        } catch (Exception e) {
+            log.debug("Facebook /me lookup failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
     private record PageToken(String accessToken, String name) {}
+    private record FacebookMe(String id, String name, String email, String pictureUrl) {}
 }
