@@ -5,6 +5,8 @@ import { useAuth } from "../context/AuthContext";
 import { fbLogin, fbProfile, loadFacebookSdk } from "../api/facebook";
 
 interface GoogleJwtPayload {
+  /** Google's stable user identifier — never changes for the same Google account. */
+  sub: string;
   email: string;
   name: string;
   picture?: string;
@@ -54,6 +56,7 @@ export function LoginPage() {
         name: profile.name,
         picture: profile.picture?.data.url,
         provider: "facebook",
+        providerUserId: profile.id,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Facebook login failed.");
@@ -96,6 +99,7 @@ export function LoginPage() {
                   name: payload.name,
                   picture: payload.picture,
                   provider: "google",
+                  providerUserId: payload.sub,
                 });
               }}
               onError={() => setError("Google login failed.")}
