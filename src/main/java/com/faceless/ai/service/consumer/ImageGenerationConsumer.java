@@ -90,7 +90,7 @@ public class ImageGenerationConsumer {
         List<Asset> newAssets = new ArrayList<>();
         for (Scene scene : jobFileDTO.getVideoScript().allSegments()) {
             int sceneId = scene.getScene();
-            MediaMode mode = scene.getMediaMode() != null ? scene.getMediaMode() : MediaMode.IMAGES;
+            MediaMode mode = scene.getMediaMode() != null ? scene.getMediaMode() : MediaMode.VIDEO_CLIP;
 
             if (mode == MediaMode.VIDEO_CLIP) {
                 generateSourceVideoForScene(scene, job, jobId, newAssets);

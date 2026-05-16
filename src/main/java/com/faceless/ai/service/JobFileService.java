@@ -58,9 +58,21 @@ public class JobFileService {
         log.info("Job created: {}", job);
 
         // 2. Call ChatGPT to generate script
-        String chatGPTResponse = chatGPTService.generateScript(request.getQuestion(), request.getStyle());
+        VideoFormat format = request.getVideoFormat() != null ? request.getVideoFormat() : VideoFormat.VIDEO;
+        String chatGPTResponse = chatGPTService.generateScript(request.getQuestion(), request.getStyle(), format);
         log.info("Script generated for job {}: {}", job.getId(), chatGPTResponse);
         VideoScript videoScript = chatGPTMapper.mapToVideoScript(chatGPTResponse);
+
+        // Belt-and-suspenders: REELS jobs must have exactly one scene. If GPT
+        // overshoots the prompt's "EXACTLY 1" instruction, truncate here so the
+        // downstream pipeline never has to special-case >1 scene short-form.
+        if (format == VideoFormat.REELS
+                && videoScript.getScenes() != null
+                && videoScript.getScenes().size() > 1) {
+            log.warn("REELS job {} got {} scenes from GPT — truncating to 1.",
+                    job.getId(), videoScript.getScenes().size());
+            videoScript.setScenes(new ArrayList<>(videoScript.getScenes().subList(0, 1)));
+        }
 
         // 3. Persist script
         jobService.saveScript(job, objectMapper.writeValueAsString(videoScript), createdBy);
@@ -577,7 +589,7 @@ public class JobFileService {
      */
     private static boolean hasMediaFor(Scene segment, List<Asset> assets) {
         int sid = segment.getScene();
-        MediaMode mode = segment.getMediaMode() != null ? segment.getMediaMode() : MediaMode.IMAGES;
+        MediaMode mode = segment.getMediaMode() != null ? segment.getMediaMode() : MediaMode.VIDEO_CLIP;
         if (mode == MediaMode.VIDEO_CLIP) {
             return assets.stream().anyMatch(a ->
                     a.getAssetType() == AssetType.SOURCE_VIDEO

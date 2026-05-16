@@ -104,7 +104,7 @@ public class VideoCombineConsumer {
             Scene segment = videoScript.findSegmentById(segmentId);
             MediaMode mode = segment != null && segment.getMediaMode() != null
                     ? segment.getMediaMode()
-                    : MediaMode.IMAGES;
+                    : MediaMode.VIDEO_CLIP;
 
             if (voiceAsset == null) {
                 throw new IllegalStateException(

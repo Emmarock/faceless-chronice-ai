@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listConnections } from "../api/social";
-import { listVideos, publishVideo, resolveStreamUrl } from "../api/videos";
+import {
+  listVideos,
+  publishVideo,
+  resolveStreamUrl,
+  videoDownloadUrl,
+} from "../api/videos";
 import { PublishModal } from "../components/PublishModal";
 import type {
   SocialConnectionDTO,
@@ -135,13 +140,26 @@ function VideoCard({ video, connections }: VideoCardProps) {
           preload="metadata"
           style={{ width: "100%", borderRadius: 6, background: "#000", display: "block" }}
         />
-        <button
-          onClick={() => setPickerOpen((o) => !o)}
-          style={uploadBtn}
-          title="Upload to connected social accounts"
-        >
-          ⬆ Upload
-        </button>
+        <div style={overlayActions}>
+          <a
+            href={videoDownloadUrl(video.videoId)}
+            // The download attribute is just a client hint; the server sets
+            // Content-Disposition: attachment, so the browser saves the file
+            // even when this attribute is ignored (cross-origin downloads).
+            download
+            style={downloadBtn}
+            title="Download the rendered .mp4 to your computer"
+          >
+            ⬇ Download
+          </a>
+          <button
+            onClick={() => setPickerOpen((o) => !o)}
+            style={uploadBtn}
+            title="Upload to connected social accounts"
+          >
+            ⬆ Upload
+          </button>
+        </div>
       </div>
 
       {pickerOpen && (
@@ -193,10 +211,15 @@ const card: React.CSSProperties = {
   padding: 16,
 };
 
-const uploadBtn: React.CSSProperties = {
+const overlayActions: React.CSSProperties = {
   position: "absolute",
   top: 10,
   right: 10,
+  display: "flex",
+  gap: 8,
+};
+
+const overlayBtnBase: React.CSSProperties = {
   background: "rgba(15, 17, 21, 0.85)",
   color: "#fff",
   border: "1px solid #2a2d33",
@@ -206,4 +229,10 @@ const uploadBtn: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 13,
   backdropFilter: "blur(4px)",
+  textDecoration: "none",
+  lineHeight: 1.4,
 };
+
+const uploadBtn: React.CSSProperties = overlayBtnBase;
+
+const downloadBtn: React.CSSProperties = overlayBtnBase;

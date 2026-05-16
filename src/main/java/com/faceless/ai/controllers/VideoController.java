@@ -111,4 +111,55 @@ public class VideoController {
 
         return new ResponseEntity<>(body, headers, partial ? HttpStatus.PARTIAL_CONTENT : HttpStatus.OK);
     }
+
+    /**
+     * Forces a file download of the rendered video. Same source bytes as
+     * {@link #stream}, but served with {@code Content-Disposition: attachment}
+     * and a filename derived from the video title so users can save the .mp4
+     * locally (for manual upload to a platform we don't integrate with, or
+     * just to keep a copy).
+     *
+     * <p>Range is intentionally not supported here — downloads are sequential
+     * and skipping ahead in a partial-content response would corrupt the file
+     * on disk.
+     */
+    @GetMapping("/{videoId}/download")
+    public ResponseEntity<StreamingResponseBody> download(@PathVariable UUID videoId) {
+        Video video = videoService.getVideo(videoId);
+        String s3Url = video.getStorageUrl();
+        long total = s3StorageService.contentLength(s3Url);
+
+        StreamingResponseBody body = out -> {
+            try (var s3Stream = s3StorageService.openStream(s3Url, null)) {
+                s3Stream.transferTo(out);
+            } catch (Exception e) {
+                log.warn("Download interrupted for video {} ({}): {}", videoId, s3Url, e.getMessage());
+            }
+        };
+
+        String filename = buildDownloadFilename(video.getTitle(), videoId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("video/mp4"));
+        headers.setContentLength(total);
+        headers.setContentDispositionFormData("attachment", filename);
+        return new ResponseEntity<>(body, headers, HttpStatus.OK);
+    }
+
+    /**
+     * Produces a filesystem-safe download name. Falls back to the videoId
+     * when the title is missing or stripped to nothing. Always ends in
+     * {@code .mp4} so the OS picks the right player on double-click.
+     */
+    private static String buildDownloadFilename(String title, UUID videoId) {
+        String base = title == null ? "" : title.trim();
+        // Replace any chars that would be problematic in a filename across
+        // Windows/macOS/Linux. Collapse whitespace to single underscores.
+        String sanitized = base
+                .replaceAll("[\\\\/:*?\"<>|]", "")
+                .replaceAll("\\s+", "_")
+                .replaceAll("_+", "_");
+        if (sanitized.length() > 80) sanitized = sanitized.substring(0, 80);
+        if (sanitized.isBlank()) sanitized = "video-" + videoId;
+        return sanitized + ".mp4";
+    }
 }

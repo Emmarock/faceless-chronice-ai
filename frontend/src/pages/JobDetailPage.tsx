@@ -438,7 +438,7 @@ export function JobDetailPage() {
           style={{ ...btnAccent, opacity: resuming || isDirty ? 0.6 : 1 }}
           title={isDirty ? "Save your edits before resuming" : undefined}
         >
-          {resuming ? "Resuming..." : "Resume pipeline"}
+          {resuming ? "Resuming..." : "Continue Video Generation"}
         </button>
         <button
           onClick={handleRegenerateAllScenes}
@@ -523,9 +523,9 @@ function ScriptEditor({
   onPickFromLibrary,
   onZoom,
 }: ScriptEditorProps) {
-  const titleMode: MediaMode = script.titleScene?.mediaMode ?? "IMAGES";
-  const hookMode: MediaMode = script.hookScene?.mediaMode ?? "IMAGES";
-  const closingMode: MediaMode = script.closingScene?.mediaMode ?? "IMAGES";
+  const titleMode: MediaMode = script.titleScene?.mediaMode ?? "VIDEO_CLIP";
+  const hookMode: MediaMode = script.hookScene?.mediaMode ?? "VIDEO_CLIP";
+  const closingMode: MediaMode = script.closingScene?.mediaMode ?? "VIDEO_CLIP";
   const renderWrapperMedia = (
     sceneId: number,
     mode: MediaMode,
@@ -679,7 +679,7 @@ function SceneEditor({
   onPickFromLibrary,
   onZoom,
 }: SceneEditorProps) {
-  const mode: MediaMode = scene.mediaMode ?? "IMAGES";
+  const mode: MediaMode = scene.mediaMode ?? "VIDEO_CLIP";
   const sourceVideo = scene.sourceVideoFiles?.[0];
 
   return (

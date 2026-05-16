@@ -31,3 +31,13 @@ export function resolveStreamUrl(streamUrl: string): string {
   if (streamUrl.startsWith("http")) return streamUrl;
   return `${base.replace(/\/$/, "")}${streamUrl}`;
 }
+
+/**
+ * Absolute URL for the per-video download endpoint. Hitting this triggers a
+ * file download (Content-Disposition: attachment) so the user can save the
+ * .mp4 and upload it manually to platforms we don't integrate with yet.
+ */
+export function videoDownloadUrl(videoId: string): string {
+  const base = apiClient.defaults.baseURL ?? "";
+  return `${base.replace(/\/$/, "")}/api/videos/${videoId}/download`;
+}

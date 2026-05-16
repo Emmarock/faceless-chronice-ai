@@ -1,7 +1,11 @@
+export type VideoFormat = "REELS" | "VIDEO";
+
 export interface GenerateJobRequest {
   question: string;
   style: string;
   durationSeconds?: number;
+  /** Short-form (REELS, ≤30s, 1 scene) vs. long-form (VIDEO, multi-scene). */
+  videoFormat?: VideoFormat;
 }
 
 export type MediaMode = "IMAGES" | "VIDEO_CLIP";

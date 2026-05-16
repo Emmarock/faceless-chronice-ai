@@ -1,5 +1,6 @@
 package com.faceless.ai.entity;
 
+import com.faceless.ai.model.VideoFormat;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
@@ -24,6 +25,15 @@ public class Job extends BaseEntity {
     private String style;
 
     private Integer durationSeconds;
+
+    /**
+     * Short-form (REELS) or long-form (VIDEO). Persisted so downstream
+     * pipeline stages and the UI can adapt — e.g. force a single scene for
+     * REELS, render in 9:16, etc. Nullable for rows created before the
+     * column existed; readers should treat null as {@link VideoFormat#VIDEO}.
+     */
+    @Enumerated(EnumType.STRING)
+    private VideoFormat videoFormat;
 
     /**
      * Optional publishing destination chosen at job-creation time.

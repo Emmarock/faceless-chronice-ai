@@ -15,4 +15,10 @@ public class GenerateJobRequest {
     private String style;          // Example: "documentary"
     private Integer durationSeconds; // Total duration estimate (optional)
     private java.util.UUID socialConnectionId; // Optional: publishing destination
+    /**
+     * Short-form ({@link VideoFormat#REELS}) vs. long-form ({@link VideoFormat#VIDEO}).
+     * Null is treated as {@link VideoFormat#VIDEO} so older clients keep
+     * producing long-form jobs.
+     */
+    private VideoFormat videoFormat;
 }

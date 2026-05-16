@@ -29,9 +29,8 @@ public class Scene {
      */
     private Double durationSeconds;
     /**
-     * Defaults to {@link MediaMode#IMAGES} so jobs created before this field
-     * existed (and any caller that omits it from JSON) keep the legacy
-     * image-montage behaviour.
+     * Defaults to {@link MediaMode#VIDEO_CLIP} — new scenes use stock video
+     * clips as their visual unless the caller explicitly picks images.
      */
-    private MediaMode mediaMode = MediaMode.IMAGES;
+    private MediaMode mediaMode = MediaMode.VIDEO_CLIP;
 }

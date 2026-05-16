@@ -271,22 +271,63 @@ public class ChatGPTService {
     }
 
     public String generateScript(String question, String style) throws Exception {
-        log.info("Calling ChatGPT to generate script for question: {}", question);
+        return generateScript(question, style, com.faceless.ai.model.VideoFormat.VIDEO);
+    }
+
+    /**
+     * Generates a script tailored to the chosen {@link com.faceless.ai.model.VideoFormat}:
+     * <ul>
+     *   <li>{@link com.faceless.ai.model.VideoFormat#REELS} — exactly 1 scene,
+     *       ≤30s of spoken content total (title + hook + scene + closing).</li>
+     *   <li>{@link com.faceless.ai.model.VideoFormat#VIDEO} — 8–10 scenes,
+     *       2–3 minutes of spoken content (legacy long-form).</li>
+     * </ul>
+     * The shape of the returned JSON is identical for both formats so the
+     * downstream mapper / pipeline doesn't need to branch.
+     */
+    public String generateScript(String question, String style, com.faceless.ai.model.VideoFormat format) throws Exception {
+        log.info("Calling ChatGPT to generate {} script for question: {}", format, question);
+        boolean reels = format == com.faceless.ai.model.VideoFormat.REELS;
+
+        String lengthRequirement = reels
+                ? "- Length: AT MOST 30 SECONDS of spoken content TOTAL (title + hook + the one scene + closing combined). Aim for ~70 words across all fields.\n"
+                : "- Length: 2–3 minutes of spoken content\n";
+
+        String scenesShape = reels
+                ? "" +
+                  "   {\"scene\":1,\"text\":\"\"}\n"
+                : "" +
+                  "   {\"scene\":1,\"text\":\"\"},\n" +
+                  "   {\"scene\":2,\"text\":\"\"}\n" +
+                  "   {\"scene\":3,\"text\":\"\"}\n" +
+                  "   {\"scene\":4,\"text\":\"\"}\n" +
+                  "   {\"scene\":5,\"text\":\"\"}\n" +
+                  "   {\"scene\":6,\"text\":\"\"}\n" +
+                  "   {\"scene\":7,\"text\":\"\"}\n" +
+                  "   {\"scene\":8,\"text\":\"\"}\n" +
+                  "   {\"scene\":9,\"text\":\"\"}\n" +
+                  "   {\"scene\":10,\"text\":\"\"}\n";
+
+        String sceneCountRule = reels
+                ? "- The \"scenes\" array MUST contain EXACTLY 1 object (scene 1). Do not add more.\n"
+                : "";
+
         String muchBetterPrompt = "You are a professional YouTube documentary scriptwriter.\n" +
                 "\n" +
-                "Write a script for a faceless educational YouTube video.\n" +
+                "Write a script for a faceless educational " + (reels ? "short-form (Reels / TikTok / YouTube Shorts) " : "YouTube ") + "video.\n" +
                 "\n" +
                 "Requirements:\n" +
                 "- Strong hook in first 5 seconds\n" +
                 "- Clear storytelling\n" +
                 "- Dramatic but factual\n" +
-                "- Length: 2–3 minutes of spoken content\n" +
+                lengthRequirement +
+                sceneCountRule +
                 "\n" +
                 FORBIDDEN_WORDS_RULE +
                 "\n" +
-                "Topic:\n" +question+
+                "Topic:\n" + question +
                 "\n" +
-                "Style:\n" +style+
+                "Style:\n" + style +
                 "\n" +
                 "\n" +
                 "Return response in JSON using format below :\n" +
@@ -295,16 +336,7 @@ public class ChatGPTService {
                 " \"title\": \"\",\n" +
                 " \"hook\": \"\",\n" +
                 " \"scenes\": [\n" +
-                "   {\"scene\":1,\"text\":\"\"},\n" +
-                "   {\"scene\":2,\"text\":\"\"}\n" +
-                "   {\"scene\":3,\"text\":\"\"}\n" +
-                "   {\"scene\":4,\"text\":\"\"}\n" +
-                "   {\"scene\":5,\"text\":\"\"}\n" +
-                "   {\"scene\":6,\"text\":\"\"}\n" +
-                "   {\"scene\":7,\"text\":\"\"}\n" +
-                "   {\"scene\":8,\"text\":\"\"}\n" +
-                "   {\"scene\":9,\"text\":\"\"}\n" +
-                "   {\"scene\":10,\"text\":\"\"}\n" +
+                scenesShape +
                 " ],\n" +
                 " \"closing\":\"\"\n" +
                 "}";

@@ -34,6 +34,9 @@ public class JobService {
                 .progress(0)
                 .style(request.getStyle())
                 .durationSeconds(request.getDurationSeconds())
+                .videoFormat(request.getVideoFormat() != null
+                        ? request.getVideoFormat()
+                        : com.faceless.ai.model.VideoFormat.VIDEO)
                 .status(Status.QUEUED)
                 .socialConnection(connection)
                 .createdBy(createdBy)
