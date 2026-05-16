@@ -383,7 +383,7 @@ export function JobDetailPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, fontSize: 13, color: "#888" }}>Job ID: {jobId}</div>
+      <div style={{ marginBottom: 16, fontSize: 13, color: "#888" }}>Content ID: {jobId}</div>
 
       {progress && (
         <div style={{ ...card, marginBottom: 16 }}>
@@ -420,7 +420,7 @@ export function JobDetailPage() {
         />
       ) : (
         <div style={{ ...card, color: "#aaa" }}>
-          No script available for this job yet.
+          No script available for this content yet.
         </div>
       )}
 

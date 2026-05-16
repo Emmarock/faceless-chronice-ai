@@ -64,7 +64,7 @@ export function CreateJobPage() {
 
   return (
     <div style={{ maxWidth: 640, width: "100%" }}>
-      <h2>Create a new job</h2>
+      <h2>Create a new content</h2>
       <p style={{ color: "#aaa", marginBottom: 24 }}>
         Generate a video script and kick off the production pipeline.
       </p>
@@ -125,7 +125,7 @@ export function CreateJobPage() {
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button type="submit" disabled={submitting} style={btnPrimary}>
-            {submitting ? "Generating..." : "Generate job"}
+            {submitting ? "Generating..." : "Generate Content"}
           </button>
           <button
             type="button"

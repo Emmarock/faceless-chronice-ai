@@ -101,9 +101,9 @@ export function JobsListPage() {
           flexWrap: "wrap",
         }}
       >
-        <h2 style={{ margin: 0 }}>Your jobs</h2>
+        <h2 style={{ margin: 0 }}>Your contents</h2>
         <Link to="/jobs/new" style={btnPrimary}>
-          + New job
+          + New content
         </Link>
       </div>
 
@@ -213,9 +213,9 @@ function Pagination({ page, totalPages, totalItems, pageSize, onPageChange }: Pa
 function EmptyState() {
   return (
     <div style={{ ...card, textAlign: "center", padding: 48 }}>
-      <p style={{ color: "#aaa", marginBottom: 16 }}>You haven't created any jobs yet.</p>
+      <p style={{ color: "#aaa", marginBottom: 16 }}>You haven't created any content yet.</p>
       <Link to="/jobs/new" style={btnPrimary}>
-        Create your first job
+        Create your first content
       </Link>
     </div>
   );
@@ -236,7 +236,7 @@ function extractError(err: unknown): string {
     const r = (err as { response?: { data?: { message?: string } } }).response;
     if (r?.data?.message) return r.data.message;
   }
-  return err instanceof Error ? err.message : "Could not load jobs.";
+  return err instanceof Error ? err.message : "Could not load contents.";
 }
 
 const card: React.CSSProperties = {

@@ -94,7 +94,7 @@ export function AssetPicker({ type, excludeJobId, onCancel, onPick }: AssetPicke
           <div style={{ color: "#aaa", padding: 24, textAlign: "center" }}>
             <p>You don't have any {isImage ? "images" : "source videos"} in your library yet.</p>
             <p style={{ fontSize: 12, color: "#888" }}>
-              Run a job to generate some, or upload one from the Assets page.
+              Generate some content to populate this, or upload one from the Assets page.
             </p>
           </div>
         ) : (

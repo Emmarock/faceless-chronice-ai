@@ -40,7 +40,7 @@ export function Layout() {
 
         <nav className="app-header__nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Jobs
+            Contents
           </NavLink>
           <NavLink to="/jobs/new" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
             Create
