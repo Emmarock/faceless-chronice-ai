@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { listConnections } from "../api/social";
 import {
   listVideos,
@@ -20,6 +20,7 @@ export function VideosListPage() {
   const [connections, setConnections] = useState<SocialConnectionDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +42,19 @@ export function VideosListPage() {
       cancelled = true;
     };
   }, []);
+
+  // Deep-link target — when arriving from the jobs list with a `#job-<id>`
+  // hash, scroll the matching video card into view once the list has loaded.
+  // The browser's native hash scroll fires before the videos render, so we
+  // re-run it ourselves after data is in place.
+  useEffect(() => {
+    if (loading || videos.length === 0) return;
+    const hash = location.hash;
+    if (!hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, videos, location.hash]);
 
   return (
     <div>
@@ -108,7 +122,7 @@ function VideoCard({ video, connections }: VideoCardProps) {
   };
 
   return (
-    <div style={card}>
+    <div id={`job-${video.jobId}`} style={card}>
       <div
         style={{
           display: "flex",

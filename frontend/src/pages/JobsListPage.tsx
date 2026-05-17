@@ -121,10 +121,15 @@ export function JobsListPage() {
               const status = live?.status ?? job.status ?? null;
               const progress = live?.progress ?? job.progress ?? 0;
               const stage = live?.stage ?? null;
+              // Completed jobs jump straight to the rendered video on the
+              // videos page; everything else still goes to the detail page
+              // where the user can watch progress / inspect failures.
+              const target =
+                status === "COMPLETED" ? `/videos#job-${job.jobId}` : `/jobs/${job.jobId}`;
               return (
                 <Link
                   key={job.jobId}
-                  to={`/jobs/${job.jobId}`}
+                  to={target}
                   style={{
                     ...card,
                     textDecoration: "none",
