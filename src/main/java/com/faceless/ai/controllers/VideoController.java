@@ -41,6 +41,17 @@ public class VideoController {
     }
 
     /**
+     * Single-video lookup keyed by the originating job. The frontend's
+     * "open completed job" flow uses this so it can show only the selected
+     * video instead of refetching the entire user library.
+     */
+    @GetMapping("/by-job/{jobId}")
+    public ResponseEntity<VideoSummaryDTO> getByJob(@PathVariable UUID jobId,
+                                                    @RequestHeader("X-USER") String userId) {
+        return ResponseEntity.ok(videoService.getForUserByJobId(userId, jobId));
+    }
+
+    /**
      * Queue a rendered video for upload to one or more connected social
      * platforms. Each platform reports its own status (QUEUED / NOT_CONNECTED
      * / UNSUPPORTED / ALREADY_UPLOADED) so partial successes are visible.

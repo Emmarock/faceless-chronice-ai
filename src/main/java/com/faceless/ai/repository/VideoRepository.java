@@ -13,5 +13,7 @@ public interface VideoRepository extends BaseRepository<Video, UUID> {
 
     Optional<Video> findByJobId(UUID jobId);
 
+    Optional<Video> findByJobIdAndCreatedBy(UUID jobId, String createdBy);
+
     List<Video> findAllByCreatedByOrderByCreatedOnDesc(String createdBy);
 }

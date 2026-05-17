@@ -10,6 +10,11 @@ export async function listVideos(): Promise<VideoSummaryDTO[]> {
   return data;
 }
 
+export async function getVideoByJobId(jobId: string): Promise<VideoSummaryDTO> {
+  const { data } = await apiClient.get<VideoSummaryDTO>(`/api/videos/by-job/${jobId}`);
+  return data;
+}
+
 export async function publishVideo(
   videoId: string,
   platforms: SocialPlatform[],

@@ -10,6 +10,7 @@ import { JobsListPage } from "./pages/JobsListPage";
 import { CreateJobPage } from "./pages/CreateJobPage";
 import { JobDetailPage } from "./pages/JobDetailPage";
 import { VideosListPage } from "./pages/VideosListPage";
+import { VideoDetailPage } from "./pages/VideoDetailPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
@@ -52,6 +53,7 @@ export function App() {
                   <Route path="jobs/new" element={<CreateJobPage />} />
                   <Route path="jobs/:jobId" element={<JobDetailPage />} />
                   <Route path="videos" element={<VideosListPage />} />
+                  <Route path="videos/job/:jobId" element={<VideoDetailPage />} />
                   <Route path="assets" element={<AssetsPage />} />
                   <Route path="connections" element={<ConnectionsPage />} />
                 </Route>
