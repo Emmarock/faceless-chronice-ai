@@ -81,4 +81,16 @@ public class Subscription extends BaseEntity {
      */
     @Column(name = "cancel_at_period_end", nullable = false)
     private boolean cancelAtPeriodEnd;
+
+    /**
+     * True once the user has <em>actively picked</em> a plan — either by
+     * upgrading via Stripe / preview-mode activation, or by explicitly
+     * choosing to stay on FREE on the pricing page.
+     *
+     * <p>The first-time-onboarding redirect ({@code RequirePlanSelected} on
+     * the frontend) gates every non-billing route until this flips true,
+     * so brand-new sign-ups always see the pricing page first.
+     */
+    @Column(name = "plan_selected", nullable = false)
+    private boolean planSelected;
 }

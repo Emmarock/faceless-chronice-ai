@@ -31,6 +31,10 @@ export function PricingPage() {
   // safe by treating a missing flag as "real payments expected". Once /me
   // arrives, this picks up the actual server-side setting.
   const paymentsRequired = billing?.paymentsRequired ?? true;
+  // Brand-new sign-ups land here as their first stop. The "Continue with
+  // Free" CTA appears only in this state — once they pick, the Free card
+  // reverts to its normal "Current plan / Go to billing" behaviour.
+  const isOnboarding = billing !== null && !billing.planSelected;
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +62,21 @@ export function PricingPage() {
       return;
     }
     if (plan.code === "FREE") {
+      if (isOnboarding) {
+        // First-time user confirming Free. Flip plan_selected and let them
+        // into the rest of the app.
+        setBusyPlan("FREE");
+        setError(null);
+        try {
+          await activatePlan("FREE");
+          await refreshBilling();
+          navigate("/");
+        } catch (err) {
+          setError(extractError(err));
+          setBusyPlan(null);
+        }
+        return;
+      }
       navigate("/billing");
       return;
     }
@@ -91,10 +110,13 @@ export function PricingPage() {
   return (
     <div>
       <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h2 style={{ margin: 0 }}>Pick the plan that fits your output</h2>
+        <h2 style={{ margin: 0 }}>
+          {isOnboarding ? "Welcome — pick a plan to get started" : "Pick the plan that fits your output"}
+        </h2>
         <p style={{ color: "#aaa", marginTop: 8, maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
-          Every plan includes a monthly credit pool. Credits cover script generation, image generation,
-          voice synthesis, stock-video fetches, and final assembly — the more you upgrade, the more you ship.
+          {isOnboarding
+            ? "You can change plans anytime from the billing page. Free is fine to start — Reels-only, watermarked, with a small monthly credit pool."
+            : "Every plan includes a monthly credit pool. Credits cover script generation, image generation, voice synthesis, stock-video fetches, and final assembly — the more you upgrade, the more you ship."}
         </p>
         {!paymentsRequired && (
           <div
@@ -136,6 +158,7 @@ export function PricingPage() {
               busy={busyPlan === plan.code}
               paymentsRequired={paymentsRequired}
               currentPlan={billing?.planCode ?? null}
+              isOnboarding={isOnboarding}
               onSelect={() => handleUpgrade(plan)}
             />
           ))}
@@ -155,12 +178,13 @@ interface PlanCardProps {
   busy: boolean;
   paymentsRequired: boolean;
   currentPlan: PlanCode | null;
+  isOnboarding: boolean;
   onSelect: () => void;
 }
 
-function PlanCard({ plan, busy, paymentsRequired, currentPlan, onSelect }: PlanCardProps) {
+function PlanCard({ plan, busy, paymentsRequired, currentPlan, isOnboarding, onSelect }: PlanCardProps) {
   const priceLabel = formatPrice(plan, paymentsRequired);
-  const cta = ctaLabel(plan, paymentsRequired, currentPlan);
+  const cta = ctaLabel(plan, paymentsRequired, currentPlan, isOnboarding);
   return (
     <div
       style={{
@@ -227,10 +251,19 @@ function formatPrice(plan: PlanDTO, paymentsRequired: boolean): string {
   return paymentsRequired ? price : `${price} (free in preview)`;
 }
 
-function ctaLabel(plan: PlanDTO, paymentsRequired: boolean, currentPlan: PlanCode | null): string {
+function ctaLabel(
+  plan: PlanDTO,
+  paymentsRequired: boolean,
+  currentPlan: PlanCode | null,
+  isOnboarding: boolean,
+): string {
   if (plan.code === "ENTERPRISE") return "Contact sales";
+  if (plan.code === "FREE") {
+    if (isOnboarding) return "Continue with Free";
+    if (currentPlan === "FREE") return "Current plan";
+    return "Go to billing";
+  }
   if (currentPlan === plan.code) return "Current plan";
-  if (plan.code === "FREE") return "Go to billing";
   if (paymentsRequired && !plan.selfServe) return "Coming soon";
   // No payments mode → activate-in-place; payments mode → Stripe Checkout.
   return paymentsRequired ? `Upgrade to ${plan.displayName}` : `Switch to ${plan.displayName}`;

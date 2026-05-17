@@ -30,6 +30,12 @@ export interface BillingMeDTO {
    * {@link activatePlan} instead of going through Stripe Checkout.
    */
   paymentsRequired: boolean;
+  /**
+   * True once the user has explicitly picked a plan (paid OR clicked
+   * "Continue with Free"). Gates the first-time onboarding redirect on
+   * the frontend — falsey forces a trip through /pricing.
+   */
+  planSelected: boolean;
 }
 
 interface RedirectUrlDTO {

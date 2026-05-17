@@ -195,6 +195,10 @@ public class SubscriptionService {
         subscription.setCurrentPeriodEnd(periodEnd);
         subscription.setCancelAtPeriodEnd(cancelAtPeriodEnd);
         subscription.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
+        // Any path that lands here is a deliberate plan pick (Stripe checkout
+        // success or admin reapply) — mark onboarded so the new-user redirect
+        // releases this user.
+        subscription.setPlanSelected(true);
         return subscriptionRepository.save(subscription);
     }
 
@@ -217,6 +221,23 @@ public class SubscriptionService {
     @Transactional
     public Subscription markPastDue(Subscription subscription) {
         subscription.setSubscriptionStatus(SubscriptionStatus.PAST_DUE);
+        return subscriptionRepository.save(subscription);
+    }
+
+    /**
+     * Marks the subscription as onboarded without changing anything else.
+     * Used when a new user explicitly clicks "Continue with Free" on the
+     * pricing page — their plan stays FREE but the new-user redirect now
+     * releases them on subsequent visits.
+     *
+     * <p>Idempotent: re-calling it on an already-onboarded subscription is
+     * a no-op save (Hibernate may still hit the DB but the value is
+     * unchanged).
+     */
+    @Transactional
+    public Subscription confirmPlan(Subscription subscription) {
+        if (subscription.isPlanSelected()) return subscription;
+        subscription.setPlanSelected(true);
         return subscriptionRepository.save(subscription);
     }
 
@@ -255,6 +276,9 @@ public class SubscriptionService {
         subscription.setCurrentPeriodEnd(periodEnd);
         subscription.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
         subscription.setCancelAtPeriodEnd(false);
+        // Preview-mode activation is the user actively picking a paid plan —
+        // mark onboarded so the new-user redirect releases them.
+        subscription.setPlanSelected(true);
         subscription = subscriptionRepository.save(subscription);
 
         Integer grant = target.getMonthlyCreditGrant();

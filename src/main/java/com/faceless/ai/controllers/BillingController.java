@@ -104,11 +104,20 @@ public class BillingController {
      * {@code billing.payments-required=false} — i.e. while the product is
      * running without a Stripe account, or for demos. Activates the
      * requested plan and grants its monthly credit allowance immediately.
+     *
+     * <p>Special-cases {@link PlanCode#FREE}: rather than calling the
+     * no-payment activation path (which would grant credits a second time
+     * on top of the welcome grant the user already has), it just stamps
+     * {@code planSelected=true} on the subscription. That handles the
+     * "Continue with Free" CTA on the onboarding pricing page.
      */
     @PostMapping("/activate-plan")
     public ResponseEntity<BillingMeDTO> activatePlan(@RequestHeader("X-USER") String externalId,
                                                      @RequestBody CheckoutRequest request) {
-        if (billingProperties.isPaymentsRequired()) {
+        if (billingProperties.isPaymentsRequired() && request.plan() != PlanCode.FREE) {
+            // Payments-on deploys still need a way for new users to choose to
+            // stay on Free without being redirected to Stripe, so we keep the
+            // FREE branch open even when the flag is on.
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Payments are enabled on this deployment — use /api/billing/checkout instead.");
         }
@@ -117,8 +126,12 @@ public class BillingController {
         }
         Subscription sub = subscriptionService.getOrCreateForExternalId(externalId);
         try {
-            sub = subscriptionService.applyPlanWithoutPayment(sub, request.plan());
-            return ResponseEntity.ok(BillingMeDTO.from(sub, false));
+            if (request.plan() == PlanCode.FREE) {
+                sub = subscriptionService.confirmPlan(sub);
+            } else {
+                sub = subscriptionService.applyPlanWithoutPayment(sub, request.plan());
+            }
+            return ResponseEntity.ok(BillingMeDTO.from(sub, billingProperties.isPaymentsRequired()));
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }

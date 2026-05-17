@@ -23,7 +23,10 @@ public record BillingMeDTO(
         boolean hasStripeCustomer,
         /** Server-side flag — drives whether the frontend calls Stripe Checkout
          *  or the no-payment activation endpoint. */
-        boolean paymentsRequired) {
+        boolean paymentsRequired,
+        /** True once the user has actively picked a plan (paid or explicit Free).
+         *  Gates the new-user onboarding redirect on the frontend. */
+        boolean planSelected) {
 
     public static BillingMeDTO from(Subscription s, boolean paymentsRequired) {
         return new BillingMeDTO(
@@ -36,6 +39,7 @@ public record BillingMeDTO(
                 s.getCurrentPeriodEnd(),
                 s.isCancelAtPeriodEnd(),
                 s.getStripeCustomerId() != null && !s.getStripeCustomerId().isBlank(),
-                paymentsRequired);
+                paymentsRequired,
+                s.isPlanSelected());
     }
 }
