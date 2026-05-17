@@ -83,7 +83,7 @@ public class FacebookUploadService implements VideoUploadService {
                                         "Reconnect on the Connections page and retry."
                         ));
 
-                validateConnection(connection, UUID.fromString(request.userId()));
+                validateConnection(connection, request.userId());
 
                 long bytes = Files.size(request.videoFile());
 
@@ -232,7 +232,7 @@ public class FacebookUploadService implements VideoUploadService {
                 )
         );
     }
-    private void validateConnection(SocialConnection connection, UUID userId) {
+    private void validateConnection(SocialConnection connection, String userId) {
 
         String pageToken =
                 connection.getAccessToken();
