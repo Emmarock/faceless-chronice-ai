@@ -22,6 +22,14 @@ export function Layout() {
 
   const closeMenu = () => setMenuOpen(false);
 
+  // During first-time onboarding (no plan picked yet), every nav link except
+  // Billing points at a route the RequirePlanSelected gate would bounce back
+  // to /pricing. Hide them to avoid a confusing click-redirect loop. Billing
+  // stays visible because the user still needs to manage their state.
+  // While billing is still loading (`billing === null`) we keep everything
+  // visible so returning users don't see a chrome-pop on every refresh.
+  const navGated = billing !== null && !billing.planSelected;
+
   return (
     <div className="app-shell">
       <header className={`app-header${menuOpen ? " is-open" : ""}`}>
@@ -41,21 +49,25 @@ export function Layout() {
         </button>
 
         <nav className="app-header__nav">
-          <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Contents
-          </NavLink>
-          <NavLink to="/jobs/new" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Create
-          </NavLink>
-          <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Videos
-          </NavLink>
-          <NavLink to="/assets" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Assets
-          </NavLink>
-          <NavLink to="/connections" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-            Connections
-          </NavLink>
+          {!navGated && (
+            <>
+              <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Contents
+              </NavLink>
+              <NavLink to="/jobs/new" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Create
+              </NavLink>
+              <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Videos
+              </NavLink>
+              <NavLink to="/assets" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Assets
+              </NavLink>
+              <NavLink to="/connections" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Connections
+              </NavLink>
+            </>
+          )}
           <NavLink to="/billing" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
             Billing
           </NavLink>
