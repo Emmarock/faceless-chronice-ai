@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useBilling } from "../context/BillingContext";
 
 export function Layout() {
   const { user, signOut } = useAuth();
+  const { billing } = useBilling();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -54,9 +56,22 @@ export function Layout() {
           <NavLink to="/connections" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
             Connections
           </NavLink>
+          <NavLink to="/billing" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+            Billing
+          </NavLink>
         </nav>
 
         <div className="app-header__user">
+          {billing && (
+            <Link
+              to="/pricing"
+              title={`${billing.creditBalance} credits remaining on ${billing.planDisplayName}`}
+              style={creditChip}
+            >
+              <span style={{ opacity: 0.7, marginRight: 4 }}>◈</span>
+              {billing.creditBalance.toLocaleString()}
+            </Link>
+          )}
           {user?.picture && <img src={user.picture} alt="" className="app-header__avatar" />}
           <span className="app-header__user-email">{user?.email}</span>
           <button onClick={handleSignOut} style={btnSecondary}>
@@ -79,4 +94,18 @@ const btnSecondary: React.CSSProperties = {
   padding: "6px 12px",
   cursor: "pointer",
   fontSize: 13,
+};
+
+const creditChip: React.CSSProperties = {
+  background: "#15171b",
+  color: "#cbd5e1",
+  border: "1px solid #2a2d33",
+  borderRadius: 999,
+  padding: "4px 10px",
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  marginRight: 8,
 };

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { generateJob } from "../api/jobs";
 import type { VideoFormat } from "../types/api";
+import { useBilling } from "../context/BillingContext";
 
 const STYLE_OPTIONS = [
   "documentary",
@@ -22,19 +23,33 @@ const VIDEO_DEFAULT_SECONDS = 60;
 
 export function CreateJobPage() {
   const navigate = useNavigate();
+  const { billing, refresh: refreshBilling } = useBilling();
   const [question, setQuestion] = useState("");
   const [style, setStyle] = useState(STYLE_OPTIONS[0]);
   const [videoFormat, setVideoFormat] = useState<VideoFormat>("REELS");
   const [durationSeconds, setDurationSeconds] = useState<number>(REELS_DEFAULT_SECONDS);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set to true when the last submit failed with a 402 — surface the upgrade banner. */
+  const [outOfCredits, setOutOfCredits] = useState(false);
 
   const isReels = videoFormat === "REELS";
   const durationMin = isReels ? 5 : VIDEO_MIN_SECONDS;
   const durationMax = isReels ? REELS_MAX_SECONDS : VIDEO_MAX_SECONDS;
+  // Long-form Video is a paid feature. Free users get the button rendered
+  // in a locked state so the gate is visible up front, not surprise-rejected
+  // on submit. The backend enforces the same rule regardless of UI state.
+  const isFreePlan = billing?.planCode === "FREE";
+  const videoLocked = isFreePlan;
 
   const handleFormatChange = (next: VideoFormat) => {
     if (next === videoFormat) return;
+    if (next === "VIDEO" && videoLocked) {
+      // Bounce to /pricing instead of silently no-op'ing — the upgrade prompt
+      // is the point of the lock.
+      navigate("/pricing");
+      return;
+    }
     setVideoFormat(next);
     // Snap duration into the new format's window so the input doesn't show a
     // value the backend would reject.
@@ -47,6 +62,7 @@ export function CreateJobPage() {
     const clamped = Math.min(durationMax, Math.max(durationMin, durationSeconds));
     setSubmitting(true);
     setError(null);
+    setOutOfCredits(false);
     try {
       const result = await generateJob({
         question: question.trim(),
@@ -54,13 +70,30 @@ export function CreateJobPage() {
         durationSeconds: clamped,
         videoFormat,
       });
+      // Backend debited credits on success — refresh the chip without waiting
+      // for the next polling tick.
+      refreshBilling();
       navigate(`/jobs/${result.jobId}`, { state: { jobFile: result } });
     } catch (err) {
-      setError(extractError(err));
+      if (isPaymentRequired(err)) {
+        setOutOfCredits(true);
+        setError(extractError(err) || "You're out of credits.");
+        // Balance is unchanged on 402 (we throw before debiting), but refresh
+        // anyway so the chip is authoritative.
+        refreshBilling();
+      } else {
+        setError(extractError(err));
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
+  function isPaymentRequired(err: unknown): boolean {
+    if (typeof err !== "object" || err === null || !("response" in err)) return false;
+    const status = (err as { response?: { status?: number } }).response?.status;
+    return status === 402;
+  }
 
   return (
     <div style={{ maxWidth: 640, width: "100%" }}>
@@ -103,9 +136,12 @@ export function CreateJobPage() {
             <FormatButton
               active={videoFormat === "VIDEO"}
               onClick={() => handleFormatChange("VIDEO")}
-              title="Multi-scene, multi-minute long-form video"
+              title={videoLocked
+                ? "Long-form video is a paid feature — click to upgrade"
+                : "Multi-scene, multi-minute long-form video"}
               label="Video"
-              sub="long-form, multi-scene"
+              sub={videoLocked ? "Upgrade to unlock" : "long-form, multi-scene"}
+              locked={videoLocked}
             />
           </div>
         </Field>
@@ -121,7 +157,48 @@ export function CreateJobPage() {
           />
         </Field>
 
-        {error && <div style={{ color: "#ff6b6b" }}>{error}</div>}
+        {outOfCredits ? (
+          <div
+            style={{
+              background: "#1a1612",
+              border: "1px solid #5a3a1f",
+              borderRadius: 8,
+              padding: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>
+                You're out of credits
+              </div>
+              <div style={{ fontSize: 13, color: "#cbd5e1" }}>
+                {error ?? "Upgrade your plan to keep generating content."}
+              </div>
+            </div>
+            <Link
+              to="/pricing"
+              style={{
+                background: "#3b82f6",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 14px",
+                fontWeight: 600,
+                fontSize: 13,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Upgrade plan
+            </Link>
+          </div>
+        ) : error ? (
+          <div style={{ color: "#ff6b6b" }}>{error}</div>
+        ) : null}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <button type="submit" disabled={submitting} style={btnPrimary}>
@@ -156,12 +233,16 @@ function FormatButton({
   label,
   sub,
   title,
+  locked = false,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
   sub: string;
   title: string;
+  /** Renders the button in a "paid feature" state. Click still fires so the
+   *  parent can route to /pricing — we don't disable, we redirect. */
+  locked?: boolean;
 }) {
   return (
     <button
@@ -170,9 +251,9 @@ function FormatButton({
       title={title}
       style={{
         flex: 1,
-        background: active ? "#1d4ed8" : "transparent",
-        color: active ? "#fff" : "#cbd5e1",
-        border: "1px solid " + (active ? "#3b82f6" : "#2a2d33"),
+        background: active ? "#1d4ed8" : locked ? "#181a1f" : "transparent",
+        color: active ? "#fff" : locked ? "#7a8db3" : "#cbd5e1",
+        border: "1px solid " + (active ? "#3b82f6" : locked ? "#2a2d33" : "#2a2d33"),
         borderRadius: 6,
         padding: "10px 12px",
         cursor: active ? "default" : "pointer",
@@ -181,10 +262,14 @@ function FormatButton({
         flexDirection: "column",
         alignItems: "flex-start",
         gap: 2,
+        position: "relative",
       }}
     >
-      <span style={{ fontSize: 14 }}>{label}</span>
-      <span style={{ fontSize: 11, color: active ? "#d6e3ff" : "#7a8db3", fontWeight: 400 }}>
+      <span style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {locked && <span aria-hidden style={{ fontSize: 12 }}>🔒</span>}
+        {label}
+      </span>
+      <span style={{ fontSize: 11, color: active ? "#d6e3ff" : locked ? "#fbbf24" : "#7a8db3", fontWeight: 400 }}>
         {sub}
       </span>
     </button>

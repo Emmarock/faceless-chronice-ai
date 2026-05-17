@@ -119,6 +119,15 @@
       <artifactId>s3</artifactId>
     </dependency>
 
+    <!-- Stripe SDK. Powers /api/billing/* (Checkout, Customer Portal,
+         subscription webhooks). Server-only — the frontend talks to Stripe
+         exclusively via the hosted URLs we mint here. -->
+    <dependency>
+      <groupId>com.stripe</groupId>
+      <artifactId>stripe-java</artifactId>
+      <version>26.12.0</version>
+    </dependency>
+
     <!-- YouTube Data API v3 -->
     <dependency>
       <groupId>com.google.apis</groupId>

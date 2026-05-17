@@ -36,6 +36,17 @@ public class Job extends BaseEntity {
     private VideoFormat videoFormat;
 
     /**
+     * When true, the final FFmpeg assembly stamps a watermark on each
+     * scene's clip. Decided at job-creation time from the user's plan, then
+     * frozen on the row — upgrading mid-pipeline does not retroactively
+     * remove the watermark, and downgrading mid-pipeline does not add one.
+     * That keeps a single user's job output deterministic regardless of
+     * what happens on their account in between.
+     */
+    @Column(name = "watermarked", nullable = false)
+    private boolean watermarked;
+
+    /**
      * Optional publishing destination chosen at job-creation time.
      * Set to NULL automatically if the connection is later disconnected,
      * so historical jobs are preserved even after the user revokes access.

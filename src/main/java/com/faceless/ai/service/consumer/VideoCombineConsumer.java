@@ -9,6 +9,7 @@ import com.faceless.ai.model.MediaMode;
 import com.faceless.ai.model.Scene;
 import com.faceless.ai.model.VideoScript;
 import com.faceless.ai.repository.AssetRepository;
+import com.faceless.ai.config.BillingProperties;
 import com.faceless.ai.service.JobService;
 import com.faceless.ai.service.S3StorageService;
 import com.faceless.ai.service.VideoPipelineService;
@@ -37,6 +38,7 @@ public class VideoCombineConsumer {
     private final S3StorageService s3StorageService;
     private final VideoPipelineService videoPipelineService;
     private final PipelineProducer pipelineProducer;
+    private final BillingProperties billingProperties;
 
     /**
      * ffmpeg concat across many scenes can run for several minutes. The 15 min
@@ -128,6 +130,7 @@ public class VideoCombineConsumer {
                 Path audioPath = s3StorageService.downloadToTemp(audioUrl, audioExt);
                 double durationSec = videoPipelineService.getAudioDurationSeconds(audioPath);
 
+                String watermarkText = job.isWatermarked() ? billingProperties.getWatermarkText() : null;
                 if (mode == MediaMode.VIDEO_CLIP) {
                     Asset sourceVideoAsset = sourceVideoBySegment.get(segmentId);
                     if (sourceVideoAsset == null) {
@@ -136,7 +139,7 @@ public class VideoCombineConsumer {
                     }
                     Path sourceVideoPath = s3StorageService.downloadToTemp(sourceVideoAsset.getUrl(), ".mp4");
                     clipPath = videoPipelineService.assembleSceneFromVideo(
-                            sourceVideoPath, audioPath, jobId, segmentId, durationSec);
+                            sourceVideoPath, audioPath, jobId, segmentId, durationSec, watermarkText);
                 } else {
                     List<Asset> imageAssets = imagesBySegment.get(segmentId);
                     if (imageAssets == null || imageAssets.isEmpty()) {
@@ -151,7 +154,7 @@ public class VideoCombineConsumer {
                         imagePaths.add(s3StorageService.downloadToTemp(imgUrl, imgExt));
                     }
                     clipPath = videoPipelineService.assembleScene(
-                            imagePaths, audioPath, jobId, segmentId, durationSec);
+                            imagePaths, audioPath, jobId, segmentId, durationSec, watermarkText);
                 }
 
                 String clipKey = "jobs/" + jobId + "/clips/segment_" + segmentId + ".mp4";

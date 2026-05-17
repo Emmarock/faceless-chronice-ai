@@ -53,12 +53,28 @@ public class VideoPipelineService {
      */
     public Path assembleSceneFromVideo(Path sourceVideo, Path audio, String jobId, int sceneId,
                                        double durationSec) throws Exception {
-        log.info("Assembling clip from source video for job {} scene {} ({} s)...", jobId, sceneId, durationSec);
+        return assembleSceneFromVideo(sourceVideo, audio, jobId, sceneId, durationSec, null);
+    }
+
+    /**
+     * {@link #assembleSceneFromVideo(Path, Path, String, int, double)} with
+     * an optional watermark string. When {@code watermarkText} is non-blank,
+     * a {@code drawtext} pass is appended to the per-scene filter chain so
+     * every clip carries the overlay. The concat step at the end of the
+     * pipeline uses {@code -c copy} and can't add filters, so per-scene is
+     * the only place this hook makes sense.
+     */
+    public Path assembleSceneFromVideo(Path sourceVideo, Path audio, String jobId, int sceneId,
+                                       double durationSec, String watermarkText) throws Exception {
+        log.info("Assembling clip from source video for job {} scene {} ({} s, watermark={})",
+                jobId, sceneId, durationSec, watermarkText != null);
 
         Path clipPath = Paths.get(CLIPS_DIR, "clip_" + jobId + "_scene_" + sceneId + ".mp4");
 
         String filter = "[0:v]scale=1280:720:force_original_aspect_ratio=decrease,"
-                + "pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v]";
+                + "pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1"
+                + watermarkChain(watermarkText)
+                + "[v]";
 
         String[] cmd = {
                 "ffmpeg", "-y",
@@ -87,8 +103,14 @@ public class VideoPipelineService {
 
     public Path assembleScene(List<Path> images, Path audio, String jobId, int sceneId,
                               double durationSec) throws Exception {
+        return assembleScene(images, audio, jobId, sceneId, durationSec, null);
+    }
+
+    public Path assembleScene(List<Path> images, Path audio, String jobId, int sceneId,
+                              double durationSec, String watermarkText) throws Exception {
         int n = images.size();
-        log.info("Assembling clip for job {} scene {} ({} s, {} images)...", jobId, sceneId, durationSec, n);
+        log.info("Assembling clip for job {} scene {} ({} s, {} images, watermark={})",
+                jobId, sceneId, durationSec, n, watermarkText != null);
 
         Path clipPath = Paths.get(CLIPS_DIR, "clip_" + jobId + "_scene_" + sceneId + ".mp4");
         double durationPerImage = durationSec / n;
@@ -103,7 +125,10 @@ public class VideoPipelineService {
         }
         cmd.add("-i"); cmd.add(audio.toString());
 
-        // Scale each image to 1280x720 with letterboxing, then concat into one stream
+        // Scale each image to 1280x720 with letterboxing, then concat into one
+        // stream. When a watermark is requested, append the drawtext pass
+        // AFTER concat so a single overlay sits at the same position across
+        // the whole scene (vs. once per image, which would flicker on cuts).
         StringBuilder filter = new StringBuilder();
         for (int i = 0; i < n; i++) {
             filter.append("[").append(i).append(":v]")
@@ -114,7 +139,12 @@ public class VideoPipelineService {
         for (int i = 0; i < n; i++) {
             filter.append("[v").append(i).append("]");
         }
-        filter.append("concat=n=").append(n).append(":v=1:a=0[v]");
+        if (watermarkText != null && !watermarkText.isBlank()) {
+            filter.append("concat=n=").append(n).append(":v=1:a=0[concatv];");
+            filter.append("[concatv]").append(drawTextFilterBody(watermarkText)).append("[v]");
+        } else {
+            filter.append("concat=n=").append(n).append(":v=1:a=0[v]");
+        }
 
         cmd.add("-filter_complex"); cmd.add(filter.toString());
         cmd.add("-map"); cmd.add("[v]");
@@ -211,6 +241,47 @@ public class VideoPipelineService {
                 Files.createDirectories(p);
             }
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    //  Watermark filter helpers
+    //
+    //  drawtext is part of every modern ffmpeg build that includes
+    //  --enable-libfreetype (the prebuilt static binaries from BtbN /
+    //  jrottenberg do). If you ship a stripped build that lacks freetype,
+    //  swap this to an `overlay` filter against a PNG asset.
+    // ------------------------------------------------------------------ //
+
+    /**
+     * Returns a filter snippet that can be appended to a per-source filter
+     * chain (between {@code setsar=1} and the trailing {@code [v]}). Empty
+     * string when no watermark is requested so callers can concatenate
+     * unconditionally.
+     */
+    private static String watermarkChain(String text) {
+        if (text == null || text.isBlank()) return "";
+        return "," + drawTextFilterBody(text);
+    }
+
+    /**
+     * The drawtext filter body alone (no leading comma, no node labels).
+     * Use {@link #watermarkChain(String)} when concatenating inside a
+     * comma-chained filter; use this directly when wiring a fresh node.
+     */
+    private static String drawTextFilterBody(String text) {
+        // Strip / replace characters that would terminate a drawtext expression
+        // mid-arg (colon, percent, single-quote, backslash). Keeping this
+        // defensive so a future user-configurable watermark string can't
+        // break the filter graph.
+        String safe = text.replaceAll("[:%\\\\']", " ").trim();
+        if (safe.isBlank()) safe = "Faceless Chronicle AI";
+        return "drawtext=text='" + safe + "'"
+                + ":fontcolor=white@0.85"
+                + ":fontsize=22"
+                + ":x=w-tw-20"
+                + ":y=h-th-20"
+                + ":shadowcolor=black@0.7"
+                + ":shadowx=2:shadowy=2";
     }
 
     private void runProcess(String[] cmd) throws Exception {

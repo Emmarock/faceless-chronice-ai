@@ -45,6 +45,8 @@ public class JobFileService {
     private final AssetRepository assetRepository;
     private final JobRepository jobRepository;
     private final S3StorageService s3StorageService;
+    private final SubscriptionService subscriptionService;
+    private final com.faceless.ai.repository.AppUserRepository appUserRepository;
 
     private static final String JOB_OUTPUT_DIR = "./output/files/jobs/job_";
 
@@ -53,12 +55,49 @@ public class JobFileService {
     // ------------------------------------------------------------------ //
 
     public JobFileDTO generateJobFile(GenerateJobRequest request, String createdBy) throws Exception {
+        VideoFormat format = request.getVideoFormat() != null ? request.getVideoFormat() : VideoFormat.VIDEO;
+
+        // 0. Charge the user's credit balance up front so we fail fast on
+        //    out-of-credits before burning ChatGPT tokens. The AppUser is
+        //    auto-provisioned for legacy X-USER values that predate the
+        //    AppUser table; SubscriptionService creates the FREE row and
+        //    grants the welcome credits on first read.
+        com.faceless.ai.entity.AppUser user = appUserRepository.findByExternalId(createdBy)
+                .orElseGet(() -> appUserRepository.save(
+                        com.faceless.ai.entity.AppUser.builder()
+                                .externalId(createdBy)
+                                .createdBy(createdBy)
+                                .lastModifiedBy(createdBy)
+                                .createdOn(Instant.now())
+                                .lastModifiedOn(Instant.now())
+                                .build()));
+        com.faceless.ai.entity.Subscription subscription = subscriptionService.getOrCreateForUser(user);
+
+        // Plan gating. Free users:
+        //   - cannot pick the long-form VIDEO format (Reels only)
+        //   - get a watermark stamped on their output
+        // Both decisions are frozen on the Job row here so a mid-pipeline
+        // upgrade/downgrade doesn't produce an inconsistent final video.
+        boolean isFree = subscription.getPlan().getCode() == com.faceless.ai.entity.PlanCode.FREE;
+        if (isFree && format == VideoFormat.VIDEO) {
+            throw new com.faceless.ai.exceptions.PlanRestrictionException(
+                    "Long-form video is a paid feature — upgrade to Creator or above to unlock the Video format.");
+        }
+
         // 1. Save job entity
         Job job = jobService.createJob(request, createdBy);
-        log.info("Job created: {}", job);
+        if (isFree) {
+            job.setWatermarked(true);
+            job = jobRepository.save(job);
+        }
+        log.info("Job created: {} (watermarked={})", job.getId(), job.isWatermarked());
+
+        // Debit only AFTER the Job row exists so the ledger row can
+        // reference its id (useful for per-job cost reports). Any throw
+        // here propagates as 402 Payment Required.
+        subscriptionService.consumeJobBudget(subscription, format, job.getId());
 
         // 2. Call ChatGPT to generate script
-        VideoFormat format = request.getVideoFormat() != null ? request.getVideoFormat() : VideoFormat.VIDEO;
         String chatGPTResponse = chatGPTService.generateScript(request.getQuestion(), request.getStyle(), format);
         log.info("Script generated for job {}: {}", job.getId(), chatGPTResponse);
         VideoScript videoScript = chatGPTMapper.mapToVideoScript(chatGPTResponse);

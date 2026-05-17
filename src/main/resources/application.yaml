@@ -136,6 +136,53 @@ chronicleai:
   tiktok:
     client-key: ${TIKTOK_CLIENT_KEY:}
     client-secret: ${TIKTOK_CLIENT_SECRET:}
+  billing:
+    # Master feature flag for the payment layer. Default false ships
+    # paid-plan activation as a no-op upgrade (good for demos and for
+    # running the product before a Stripe account exists). Set to true
+    # once Stripe is wired up — Checkout becomes the only way to activate
+    # paid plans, and /api/billing/activate-plan refuses to serve traffic.
+    payments-required: ${BILLING_PAYMENTS_REQUIRED:false}
+    # Stripe credentials. Required for self-serve checkout / portal /
+    # webhook signature verification. Leave blank in dev if you only want
+    # the schema + UI without real payments — checkout endpoints will 503
+    # cleanly when stripe.secret-key is empty.
+    stripe:
+      secret-key:     ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      # URLs Stripe redirects to after the hosted checkout completes /
+      # gets cancelled. Should point at the frontend's /billing route.
+      success-url:    ${STRIPE_SUCCESS_URL:http://localhost:5173/billing?checkout=success}
+      cancel-url:     ${STRIPE_CANCEL_URL:http://localhost:5173/pricing?checkout=cancelled}
+      portal-return-url: ${STRIPE_PORTAL_RETURN_URL:http://localhost:5173/billing}
+    # Per-plan Stripe price IDs. Backfilled into the `plans` table on first
+    # boot — leave blank in environments that don't take payments.
+    plans:
+      creator-price-id:   ${STRIPE_PRICE_CREATOR:}
+      pro-price-id:       ${STRIPE_PRICE_PRO:}
+      unlimited-price-id: ${STRIPE_PRICE_UNLIMITED:}
+    # Credits debited per metered AI action. The pipeline calls
+    # CreditGuard with one of these LedgerKinds; tune here without code
+    # changes when the underlying API costs shift.
+    credit-costs:
+      script:          5
+      image:           10
+      voice:           5
+      video-clip:      3
+      video-assembly:  5
+    # Flat upfront charge at job creation, by format. Sized so the Free
+    # tier's 100 credits buys ~2 Reels (50 each) — tune to taste.
+    job-budgets:
+      reels: 50
+      video: 300
+    # Welcome grant for brand-new AppUsers, on top of (or in place of) the
+    # FREE plan's monthly grant. Set to 0 to disable.
+    welcome-grant: 50
+    # Where the "Contact sales" CTA on the Enterprise card links to.
+    enterprise-contact-email: ${BILLING_ENTERPRISE_EMAIL:sales@example.com}
+    # Watermark stamped on Free-plan outputs. Single line; drawtext-safe
+    # (no colons or percent signs in the default).
+    watermark-text: ${BILLING_WATERMARK_TEXT:Made with Faceless Chronicle AI}
   facebook:
     # Meta for Developers → Apps → App ID / App Secret. The OAuth flow asks
     # for page-management scopes (pages_show_list, pages_manage_posts,

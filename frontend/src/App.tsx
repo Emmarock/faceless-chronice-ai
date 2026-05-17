@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { AuthProvider } from "./context/AuthContext";
+import { BillingProvider } from "./context/BillingContext";
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
 import { LoginPage } from "./pages/LoginPage";
@@ -14,6 +15,8 @@ import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsOfServicePage } from "./pages/TermsOfServicePage";
 import { DataDeletionPage } from "./pages/DataDeletionPage";
+import { PricingPage } from "./pages/PricingPage";
+import { BillingPage } from "./pages/BillingPage";
 
 export function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
@@ -21,30 +24,34 @@ export function App() {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/tos" element={<TermsOfServicePage />} />
-            <Route path="/delete-data" element={<DataDeletionPage />} />
-            <Route
-              element={
-                <RequireAuth>
-                  <Layout />
-                </RequireAuth>
-              }
-            >
-              <Route index element={<JobsListPage />} />
-              <Route path="jobs/new" element={<CreateJobPage />} />
-              <Route path="jobs/:jobId" element={<JobDetailPage />} />
-              <Route path="videos" element={<VideosListPage />} />
-              <Route path="assets" element={<AssetsPage />} />
-              <Route path="connections" element={<ConnectionsPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+        <BillingProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+              <Route path="/tos" element={<TermsOfServicePage />} />
+              <Route path="/delete-data" element={<DataDeletionPage />} />
+              <Route
+                element={
+                  <RequireAuth>
+                    <Layout />
+                  </RequireAuth>
+                }
+              >
+                <Route index element={<JobsListPage />} />
+                <Route path="jobs/new" element={<CreateJobPage />} />
+                <Route path="jobs/:jobId" element={<JobDetailPage />} />
+                <Route path="videos" element={<VideosListPage />} />
+                <Route path="assets" element={<AssetsPage />} />
+                <Route path="connections" element={<ConnectionsPage />} />
+                <Route path="pricing" element={<PricingPage />} />
+                <Route path="billing" element={<BillingPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </BillingProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );
