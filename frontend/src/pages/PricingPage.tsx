@@ -61,6 +61,15 @@ export function PricingPage() {
       window.location.href = `mailto:${enterpriseEmail}?subject=Enterprise%20plan%20inquiry`;
       return;
     }
+    // Defence-in-depth: even if the button somehow renders enabled, never
+    // re-run checkout / activation against the plan the user is already on.
+    // Onboarding is the one exception — currentPlan==FREE during onboarding
+    // still needs the "Continue with Free" confirmation click to flip the
+    // plan_selected flag.
+    if (billing?.planCode === plan.code && !isOnboarding) {
+      navigate("/billing");
+      return;
+    }
     if (plan.code === "FREE") {
       if (isOnboarding) {
         // First-time user confirming Free. Flip plan_selected and let them
@@ -80,8 +89,9 @@ export function PricingPage() {
       navigate("/billing");
       return;
     }
-    // selfServe is only meaningful when payments are required (no price id
-    // → no checkout). In no-payment mode, every paid plan is activatable.
+    // Defensive: the "Coming soon" button is rendered disabled (see
+    // PlanCard.nonActionable), but if the user somehow clicks anyway,
+    // refuse rather than create a Stripe session that will 400 on us.
     if (paymentsRequired && !plan.selfServe) {
       setError(
         `The ${plan.displayName} plan isn't checkout-enabled yet — set its Stripe price id in your backend config.`,
@@ -185,6 +195,17 @@ interface PlanCardProps {
 function PlanCard({ plan, busy, paymentsRequired, currentPlan, isOnboarding, onSelect }: PlanCardProps) {
   const priceLabel = formatPrice(plan, paymentsRequired);
   const cta = ctaLabel(plan, paymentsRequired, currentPlan, isOnboarding);
+  // A CTA is non-actionable when:
+  //  - it's the plan the user is already on (paid or post-onboarding Free)
+  //  - the plan is a paid one with no Stripe price id wired up
+  // The Enterprise / Free / paid-upgrade flows all stay actionable.
+  const isCurrent = currentPlan === plan.code && !(plan.code === "FREE" && isOnboarding);
+  const isComingSoon = paymentsRequired
+    && !plan.selfServe
+    && plan.code !== "FREE"
+    && plan.code !== "ENTERPRISE";
+  const nonActionable = isCurrent || isComingSoon;
+  const disabled = busy || nonActionable;
   return (
     <div
       style={{
@@ -227,12 +248,12 @@ function PlanCard({ plan, busy, paymentsRequired, currentPlan, isOnboarding, onS
       <button
         type="button"
         onClick={onSelect}
-        disabled={busy}
+        disabled={disabled}
         style={{
-          ...(plan.highlighted ? btnPrimary : btnSecondary),
+          ...(plan.highlighted && !nonActionable ? btnPrimary : btnSecondary),
           marginTop: "auto",
-          opacity: busy ? 0.6 : 1,
-          cursor: busy ? "wait" : "pointer",
+          opacity: busy ? 0.6 : nonActionable ? 0.55 : 1,
+          cursor: busy ? "wait" : nonActionable ? "not-allowed" : "pointer",
         }}
       >
         {busy ? "Loading…" : cta}
