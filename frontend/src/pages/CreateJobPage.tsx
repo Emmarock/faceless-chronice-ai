@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { generateJob } from "../api/jobs";
 import type { VideoFormat } from "../types/api";
 import { useBilling } from "../context/BillingContext";
+import { listPlans, type PlanCode, type PlanDTO } from "../api/billing";
 
 const STYLE_OPTIONS = [
   "documentary",
@@ -21,6 +22,15 @@ const VIDEO_MIN_SECONDS = 15;
 const VIDEO_MAX_SECONDS = 600;
 const VIDEO_DEFAULT_SECONDS = 60;
 
+// Mirrors backend BillingProperties.JobBudgets — kept in sync so the UI can
+// pre-warn before submission instead of waiting on a 402.
+const REELS_CREDIT_COST = 50;
+const VIDEO_CREDIT_COST = 300;
+
+// Plan hierarchy from lowest to highest. Used to find the cheapest plan that
+// covers the selected format's job cost.
+const PLAN_ORDER: PlanCode[] = ["FREE", "CREATOR", "PRO", "UNLIMITED", "ENTERPRISE"];
+
 export function CreateJobPage() {
   const navigate = useNavigate();
   const { billing, refresh: refreshBilling } = useBilling();
@@ -33,6 +43,8 @@ export function CreateJobPage() {
   /** Set to true when the last submit failed with a 402 — surface the upgrade banner. */
   const [outOfCredits, setOutOfCredits] = useState(false);
 
+  const [plans, setPlans] = useState<PlanDTO[]>([]);
+
   const isReels = videoFormat === "REELS";
   const durationMin = isReels ? 5 : VIDEO_MIN_SECONDS;
   const durationMax = isReels ? REELS_MAX_SECONDS : VIDEO_MAX_SECONDS;
@@ -41,6 +53,42 @@ export function CreateJobPage() {
   // on submit. The backend enforces the same rule regardless of UI state.
   const isFreePlan = billing?.planCode === "FREE";
   const videoLocked = isFreePlan;
+  const formatCost = isReels ? REELS_CREDIT_COST : VIDEO_CREDIT_COST;
+  // Pre-warn when balance is below the configured job cost so the user sees
+  // the upgrade prompt before clicking Generate. We still rely on the 402
+  // path below as the authoritative gate in case the backend cost changes.
+  const balance = billing?.creditBalance ?? null;
+  const balanceBelowCost = balance !== null && balance < formatCost;
+
+  useEffect(() => {
+    let cancelled = false;
+    listPlans()
+      .then((p) => {
+        if (!cancelled) setPlans(p);
+      })
+      .catch(() => {
+        // Plan catalog is purely advisory here — if it fails to load, fall
+        // back to a generic "Upgrade plan" CTA without naming a tier.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cheapest plan above the user's current tier whose monthly credit grant
+  // can cover the selected format's cost. Falls back to ENTERPRISE when
+  // every paid tier still wouldn't be enough.
+  const nextPlan = useMemo<PlanDTO | null>(() => {
+    if (!billing || plans.length === 0) return null;
+    const currentIdx = PLAN_ORDER.indexOf(billing.planCode);
+    const ordered = PLAN_ORDER.slice(currentIdx + 1)
+      .map((code) => plans.find((p) => p.code === code))
+      .filter((p): p is PlanDTO => !!p);
+    const covers = ordered.find(
+      (p) => p.code === "ENTERPRISE" || (p.monthlyCreditGrant ?? 0) >= formatCost,
+    );
+    return covers ?? ordered[ordered.length - 1] ?? null;
+  }, [billing, plans, formatCost]);
 
   const handleFormatChange = (next: VideoFormat) => {
     if (next === videoFormat) return;
@@ -157,51 +205,41 @@ export function CreateJobPage() {
           />
         </Field>
 
-        {outOfCredits ? (
-          <div
-            style={{
-              background: "#1a1612",
-              border: "1px solid #5a3a1f",
-              borderRadius: 8,
-              padding: 16,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-              flexWrap: "wrap",
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>
-                You're out of credits
-              </div>
-              <div style={{ fontSize: 13, color: "#cbd5e1" }}>
-                {error ?? "Upgrade your plan to keep generating content."}
-              </div>
-            </div>
-            <Link
-              to="/pricing"
-              style={{
-                background: "#3b82f6",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 14px",
-                fontWeight: 600,
-                fontSize: 13,
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Upgrade plan
-            </Link>
-          </div>
+        {outOfCredits || balanceBelowCost ? (
+          <UpgradeBanner
+            title={
+              outOfCredits
+                ? "You're out of credits"
+                : `Not enough credits to generate a ${isReels ? "Reel" : "Video"}`
+            }
+            message={
+              outOfCredits
+                ? error ?? "Upgrade your plan to keep generating content."
+                : `A ${isReels ? "Reel" : "Video"} costs ${formatCost} credits${
+                    balance !== null ? ` — you currently have ${balance.toLocaleString()}` : ""
+                  }.${
+                    nextPlan
+                      ? ` Upgrade to ${nextPlan.displayName}${
+                          nextPlan.monthlyCreditGrant != null
+                            ? ` for ${nextPlan.monthlyCreditGrant.toLocaleString()} credits / month`
+                            : ""
+                        }.`
+                      : ""
+                  }`
+            }
+            cta={nextPlan ? `Upgrade to ${nextPlan.displayName}` : "Upgrade plan"}
+          />
         ) : error ? (
           <div style={{ color: "#ff6b6b" }}>{error}</div>
         ) : null}
 
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button type="submit" disabled={submitting} style={btnPrimary}>
+          <button
+            type="submit"
+            disabled={submitting || balanceBelowCost}
+            style={{ ...btnPrimary, opacity: balanceBelowCost ? 0.6 : 1, cursor: balanceBelowCost ? "not-allowed" : "pointer" }}
+            title={balanceBelowCost ? "Upgrade your plan to generate this content" : undefined}
+          >
             {submitting ? "Generating..." : "Generate Content"}
           </button>
           <button
@@ -214,6 +252,53 @@ export function CreateJobPage() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function UpgradeBanner({
+  title,
+  message,
+  cta,
+}: {
+  title: string;
+  message: string;
+  cta: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "#1a1612",
+        border: "1px solid #5a3a1f",
+        borderRadius: 8,
+        padding: 16,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div>
+        <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>{title}</div>
+        <div style={{ fontSize: 13, color: "#cbd5e1" }}>{message}</div>
+      </div>
+      <Link
+        to="/pricing"
+        style={{
+          background: "#3b82f6",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          padding: "8px 14px",
+          fontWeight: 600,
+          fontSize: 13,
+          textDecoration: "none",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {cta}
+      </Link>
     </div>
   );
 }
