@@ -381,9 +381,73 @@ export function JobDetailPage() {
     }
   };
 
+  const actionToolbar = (
+    <div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+        <button
+          onClick={handleSave}
+          disabled={saving || !draft || !isDirty}
+          style={{ ...btnPrimary, opacity: !isDirty || saving ? 0.6 : 1 }}
+        >
+          {saving ? "Saving..." : isDirty ? "Save changes" : "Saved"}
+        </button>
+        <button
+          onClick={handleResume}
+          disabled={resuming || !draft || isDirty}
+          style={{ ...btnAccent, opacity: resuming || isDirty ? 0.6 : 1 }}
+          title={isDirty ? "Save your edits before resuming" : undefined}
+        >
+          {resuming ? "Resuming..." : "Continue Video Generation"}
+        </button>
+        <button
+          onClick={handleRegenerateAllScenes}
+          disabled={regenerating !== null || !draft || isDirty}
+          style={{ ...btnSecondary, opacity: regenerating !== null || isDirty ? 0.6 : 1 }}
+          title={isDirty ? "Save your edits before regenerating" : "Ask the AI for a fresh take on every scene"}
+        >
+          {regenerating === "all" ? "Regenerating..." : "Regenerate all scenes"}
+        </button>
+        {message && <span style={{ color: "#4ade80" }}>{message}</span>}
+        {error && <span style={{ color: "#ff6b6b" }}>{error}</span>}
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ marginBottom: 16, fontSize: 13, color: "#888" }}>Content ID: {jobId}</div>
+
+      <div style={{ ...card, marginBottom: 16, borderColor: "#1d4ed8", background: "#0f1626" }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#cbd5e1", marginBottom: 8 }}>
+          How to review and finalise your video
+        </div>
+        <ol style={{ margin: 0, paddingLeft: 20, color: "#aab2c0", fontSize: 13, lineHeight: 1.6 }}>
+          <li>
+            Read through the <strong>Title</strong>, <strong>Hook</strong>, scenes, and{" "}
+            <strong>Closing</strong> below and edit the text anywhere it doesn't sound right.
+          </li>
+          <li>
+            For each segment, use the <strong>Images / Video</strong> toggle to pick how it should be
+            shown. Choose <em>Video</em> to use a stock clip, or <em>Images</em> to use AI-generated
+            stills.
+          </li>
+          <li>
+            To swap a specific image or video, hover over the tile and click <em>Replace</em> (upload
+            from your computer), <em>From library</em> (reuse an asset you've used before), or drag a
+            new file onto the tile. Click <em>Delete</em> to remove an image or source video — the
+            next resume will fetch a fresh one.
+          </li>
+          <li>
+            When you've made text edits, click <strong>Save changes</strong>. Once saved, click{" "}
+            <strong>Continue Video Generation</strong> to resume the pipeline — voice, images, and
+            the final video only render at that point.
+          </li>
+        </ol>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#7a8db3" }}>
+          Tip: image and video edits invalidate just that scene's cached clip; the next resume
+          re-renders only what changed and re-concatenates the final video.
+        </div>
+      </div>
 
       {progress && (
         <div style={{ ...card, marginBottom: 16 }}>
@@ -394,6 +458,8 @@ export function JobDetailPage() {
           />
         </div>
       )}
+
+      <div style={{ marginBottom: 16 }}>{actionToolbar}</div>
 
       {loading ? (
         <div style={{ ...card, color: "#aaa" }}>Loading script...</div>
@@ -424,38 +490,7 @@ export function JobDetailPage() {
         </div>
       )}
 
-      <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          onClick={handleSave}
-          disabled={saving || !draft || !isDirty}
-          style={{ ...btnPrimary, opacity: !isDirty || saving ? 0.6 : 1 }}
-        >
-          {saving ? "Saving..." : isDirty ? "Save changes" : "Saved"}
-        </button>
-        <button
-          onClick={handleResume}
-          disabled={resuming || !draft || isDirty}
-          style={{ ...btnAccent, opacity: resuming || isDirty ? 0.6 : 1 }}
-          title={isDirty ? "Save your edits before resuming" : undefined}
-        >
-          {resuming ? "Resuming..." : "Continue Video Generation"}
-        </button>
-        <button
-          onClick={handleRegenerateAllScenes}
-          disabled={regenerating !== null || !draft || isDirty}
-          style={{ ...btnSecondary, opacity: regenerating !== null || isDirty ? 0.6 : 1 }}
-          title={isDirty ? "Save your edits before regenerating" : "Ask the AI for a fresh take on every scene"}
-        >
-          {regenerating === "all" ? "Regenerating..." : "Regenerate all scenes"}
-        </button>
-        {message && <span style={{ color: "#4ade80" }}>{message}</span>}
-        {error && <span style={{ color: "#ff6b6b" }}>{error}</span>}
-      </div>
-      <p style={{ marginTop: 12, fontSize: 12, color: "#888" }}>
-        Voice, image, and video generation only run when you click <em>Resume pipeline</em>.
-        Image edits invalidate just the affected scene's cached clip; the next resume re-renders that
-        scene and re-concatenates the final video.
-      </p>
+      <div style={{ marginTop: 24 }}>{actionToolbar}</div>
 
       {picker && (
         <AssetPicker
