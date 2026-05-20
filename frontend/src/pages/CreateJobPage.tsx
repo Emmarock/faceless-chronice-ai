@@ -3,7 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { generateJob } from "../api/jobs";
 import type { VideoFormat } from "../types/api";
 import { useBilling } from "../context/BillingContext";
-import { listPlans, type PlanCode, type PlanDTO } from "../api/billing";
+import {
+  activatePlan,
+  getEnterpriseContactEmail,
+  listPlans,
+  startCheckout,
+  type PlanCode,
+  type PlanDTO,
+} from "../api/billing";
 
 const STYLE_OPTIONS = [
   "documentary",
@@ -44,6 +51,9 @@ export function CreateJobPage() {
   const [outOfCredits, setOutOfCredits] = useState(false);
 
   const [plans, setPlans] = useState<PlanDTO[]>([]);
+  const [enterpriseEmail, setEnterpriseEmail] = useState<string>("sales@example.com");
+  const [busyPlan, setBusyPlan] = useState<PlanCode | null>(null);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   const isReels = videoFormat === "REELS";
   const durationMin = isReels ? 5 : VIDEO_MIN_SECONDS;
@@ -62,9 +72,14 @@ export function CreateJobPage() {
 
   useEffect(() => {
     let cancelled = false;
-    listPlans()
-      .then((p) => {
-        if (!cancelled) setPlans(p);
+    Promise.all([
+      listPlans(),
+      getEnterpriseContactEmail().catch(() => "sales@example.com"),
+    ])
+      .then(([p, email]) => {
+        if (cancelled) return;
+        setPlans(p);
+        setEnterpriseEmail(email);
       })
       .catch(() => {
         // Plan catalog is purely advisory here — if it fails to load, fall
@@ -74,6 +89,50 @@ export function CreateJobPage() {
       cancelled = true;
     };
   }, []);
+
+  // Plans the user can upgrade to from their current tier. Used by the
+  // inline plan picker that surfaces after a 402 InsufficientCredits.
+  const upgradeOptions = useMemo<PlanDTO[]>(() => {
+    if (!billing || plans.length === 0) return [];
+    const currentIdx = PLAN_ORDER.indexOf(billing.planCode);
+    return PLAN_ORDER.slice(currentIdx + 1)
+      .map((code) => plans.find((p) => p.code === code))
+      .filter((p): p is PlanDTO => !!p);
+  }, [billing, plans]);
+
+  const paymentsRequired = billing?.paymentsRequired ?? true;
+
+  const handleUpgrade = async (plan: PlanDTO) => {
+    if (plan.code === "ENTERPRISE") {
+      window.location.href = `mailto:${enterpriseEmail}?subject=Enterprise%20plan%20inquiry`;
+      return;
+    }
+    if (paymentsRequired && !plan.selfServe) {
+      setUpgradeError(
+        `The ${plan.displayName} plan isn't checkout-enabled yet — please pick another tier.`,
+      );
+      return;
+    }
+    setBusyPlan(plan.code);
+    setUpgradeError(null);
+    try {
+      if (paymentsRequired) {
+        const url = await startCheckout(plan.code);
+        // Full navigation (not router) so Stripe's hosted page loads cleanly.
+        window.location.href = url;
+      } else {
+        await activatePlan(plan.code);
+        await refreshBilling();
+        // Plan activated in-place — clear the banner and let the user retry.
+        setOutOfCredits(false);
+        setError(null);
+        setBusyPlan(null);
+      }
+    } catch (err) {
+      setUpgradeError(extractError(err));
+      setBusyPlan(null);
+    }
+  };
 
   // Cheapest plan above the user's current tier whose monthly credit grant
   // can cover the selected format's cost. Falls back to ENTERPRISE when
@@ -205,28 +264,30 @@ export function CreateJobPage() {
           />
         </Field>
 
-        {outOfCredits || balanceBelowCost ? (
+        {outOfCredits ? (
+          <InlinePlanPicker
+            title="You're out of credits"
+            message={error ?? "Upgrade your plan to keep generating content."}
+            plans={upgradeOptions}
+            paymentsRequired={paymentsRequired}
+            busyPlan={busyPlan}
+            upgradeError={upgradeError}
+            onUpgrade={handleUpgrade}
+          />
+        ) : balanceBelowCost ? (
           <UpgradeBanner
-            title={
-              outOfCredits
-                ? "You're out of credits"
-                : `Not enough credits to generate a ${isReels ? "Reel" : "Video"}`
-            }
-            message={
-              outOfCredits
-                ? error ?? "Upgrade your plan to keep generating content."
-                : `A ${isReels ? "Reel" : "Video"} costs ${formatCost} credits${
-                    balance !== null ? ` — you currently have ${balance.toLocaleString()}` : ""
-                  }.${
-                    nextPlan
-                      ? ` Upgrade to ${nextPlan.displayName}${
-                          nextPlan.monthlyCreditGrant != null
-                            ? ` for ${nextPlan.monthlyCreditGrant.toLocaleString()} credits / month`
-                            : ""
-                        }.`
+            title={`Not enough credits to generate a ${isReels ? "Reel" : "Video"}`}
+            message={`A ${isReels ? "Reel" : "Video"} costs ${formatCost} credits${
+              balance !== null ? ` — you currently have ${balance.toLocaleString()}` : ""
+            }.${
+              nextPlan
+                ? ` Upgrade to ${nextPlan.displayName}${
+                    nextPlan.monthlyCreditGrant != null
+                      ? ` for ${nextPlan.monthlyCreditGrant.toLocaleString()} credits / month`
                       : ""
-                  }`
-            }
+                  }.`
+                : ""
+            }`}
             cta={nextPlan ? `Upgrade to ${nextPlan.displayName}` : "Upgrade plan"}
           />
         ) : error ? (
@@ -254,6 +315,145 @@ export function CreateJobPage() {
       </form>
     </div>
   );
+}
+
+function InlinePlanPicker({
+  title,
+  message,
+  plans,
+  paymentsRequired,
+  busyPlan,
+  upgradeError,
+  onUpgrade,
+}: {
+  title: string;
+  message: string;
+  plans: PlanDTO[];
+  paymentsRequired: boolean;
+  busyPlan: PlanCode | null;
+  upgradeError: string | null;
+  onUpgrade: (plan: PlanDTO) => void;
+}) {
+  return (
+    <div
+      style={{
+        background: "#1a1612",
+        border: "1px solid #5a3a1f",
+        borderRadius: 8,
+        padding: 16,
+      }}
+    >
+      <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 13, color: "#cbd5e1", marginBottom: 12 }}>{message}</div>
+
+      {plans.length === 0 ? (
+        <Link
+          to="/pricing"
+          style={{
+            display: "inline-block",
+            background: "#3b82f6",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 14px",
+            fontWeight: 600,
+            fontSize: 13,
+            textDecoration: "none",
+          }}
+        >
+          See plans
+        </Link>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: "#aab2c0", marginBottom: 8 }}>
+            Pick a plan to upgrade to:
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 8,
+            }}
+          >
+            {plans.map((p) => {
+              const isComingSoon =
+                paymentsRequired && !p.selfServe && p.code !== "ENTERPRISE";
+              const busy = busyPlan === p.code;
+              const disabled = busy || isComingSoon;
+              return (
+                <button
+                  key={p.code}
+                  type="button"
+                  onClick={() => onUpgrade(p)}
+                  disabled={disabled}
+                  style={{
+                    background: p.highlighted && !disabled ? "#1d4ed8" : "#15171b",
+                    color: p.highlighted && !disabled ? "#fff" : "#e6e6e6",
+                    border: "1px solid " + (p.highlighted && !disabled ? "#3b82f6" : "#2a2d33"),
+                    borderRadius: 6,
+                    padding: 10,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 2,
+                    opacity: disabled ? 0.6 : 1,
+                    textAlign: "left",
+                  }}
+                  title={
+                    isComingSoon
+                      ? `${p.displayName} isn't checkout-enabled yet`
+                      : `Upgrade to ${p.displayName}`
+                  }
+                >
+                  <span style={{ fontSize: 13 }}>{p.displayName}</span>
+                  <span style={{ fontSize: 11, fontWeight: 400, color: "#9aa3b2" }}>
+                    {formatPlanPrice(p)}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 400, color: "#9aa3b2" }}>
+                    {p.monthlyCreditGrant != null
+                      ? `${p.monthlyCreditGrant.toLocaleString()} credits / mo`
+                      : "Custom credits"}
+                  </span>
+                  <span
+                    style={{
+                      marginTop: 4,
+                      fontSize: 11,
+                      color: p.highlighted && !disabled ? "#d6e3ff" : "#9bb3ff",
+                    }}
+                  >
+                    {busy
+                      ? "Loading…"
+                      : isComingSoon
+                      ? "Coming soon"
+                      : p.code === "ENTERPRISE"
+                      ? "Contact sales →"
+                      : paymentsRequired
+                      ? "Checkout →"
+                      : "Activate →"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {upgradeError && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "#ff8b8b" }}>{upgradeError}</div>
+          )}
+          <div style={{ marginTop: 10, fontSize: 11, color: "#7a8db3" }}>
+            Or <Link to="/pricing" style={{ color: "#9bb3ff" }}>see the full pricing page</Link>.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function formatPlanPrice(plan: PlanDTO): string {
+  if (plan.code === "ENTERPRISE") return "Custom";
+  if (plan.monthlyPriceCents == null) return "—";
+  if (plan.monthlyPriceCents === 0) return "Free";
+  return `$${(plan.monthlyPriceCents / 100).toFixed(0)}/mo`;
 }
 
 function UpgradeBanner({

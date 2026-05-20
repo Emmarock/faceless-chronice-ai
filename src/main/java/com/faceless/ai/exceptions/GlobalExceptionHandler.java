@@ -48,6 +48,42 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(error);
     }
 
+    // ---------------- Insufficient Credits ---------------- //
+    @ExceptionHandler(InsufficientCreditsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInsufficientCredits(
+            InsufficientCreditsException ex,
+            HttpServletRequest request) {
+
+        // 402 Payment Required — the request was well-formed and authenticated;
+        // it failed because the user's credit balance is too low. The frontend
+        // keys off the status to render an inline plan picker rather than a
+        // generic error string.
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.PAYMENT_REQUIRED.value())
+                .error("Insufficient Credits")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+        return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(error);
+    }
+
+    // ---------------- Plan Restriction ---------------- //
+    @ExceptionHandler(PlanRestrictionException.class)
+    public ResponseEntity<ApiErrorResponse> handlePlanRestriction(
+            PlanRestrictionException ex,
+            HttpServletRequest request) {
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error("Plan Restriction")
+                .message(ex.getMessage())
+                .path(request.getRequestURI())
+                .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
     // ---------------- No Facebook Page on user's account ---------------- //
     @ExceptionHandler(NoFacebookPageException.class)
     public ResponseEntity<ApiErrorResponse> handleNoFacebookPage(
