@@ -13,6 +13,7 @@ import { VideosListPage } from "./pages/VideosListPage";
 import { VideoDetailPage } from "./pages/VideoDetailPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { ConnectionsPage } from "./pages/ConnectionsPage";
+import { ScheduledPostsPage } from "./pages/ScheduledPostsPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { TermsOfServicePage } from "./pages/TermsOfServicePage";
@@ -56,6 +57,7 @@ export function App() {
                   <Route path="videos/job/:jobId" element={<VideoDetailPage />} />
                   <Route path="assets" element={<AssetsPage />} />
                   <Route path="connections" element={<ConnectionsPage />} />
+                  <Route path="scheduled" element={<ScheduledPostsPage />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -44,7 +44,13 @@ export interface JobFileDTO {
   videoScript: VideoScript;
 }
 
-export type SocialPlatform = "YOUTUBE" | "FACEBOOK" | "TIKTOK" | "TWITTER";
+export type SocialPlatform =
+  | "YOUTUBE"
+  | "FACEBOOK"
+  | "INSTAGRAM"
+  | "TIKTOK"
+  | "TWITTER"
+  | "LINKEDIN";
 
 export interface SocialConnectionDTO {
   id: string;
@@ -59,7 +65,31 @@ export interface SocialConnectionRequest {
   accessToken: string;
   refreshToken?: string;
   accountHandle?: string;
+  providerAccountId?: string;
   expiresAt?: string;
+}
+
+/**
+ * Per-platform caption / title / hashtag overrides the redesigned
+ * PublishModal sends back. The backend persists these on the matching
+ * SocialUpload row so scheduled publishes fire with the user's chosen
+ * text even when the actual upload happens hours later.
+ */
+export interface PlatformPostOptions {
+  title?: string;
+  caption?: string;
+  hashtags?: string[];
+}
+
+/**
+ * Body shape for POST /api/videos/{id}/publish and the asset variant.
+ * Extends the legacy {@code platforms}-only request with optional
+ * {@code scheduledAt} (ISO instant) and per-platform overrides.
+ */
+export interface VideoPublishRequest {
+  platforms: SocialPlatform[];
+  scheduledAt?: string | null;
+  overrides?: Partial<Record<SocialPlatform, PlatformPostOptions>>;
 }
 
 export interface JobHistoryEntry {
@@ -99,6 +129,7 @@ export interface VideoSummaryDTO {
 
 export type VideoPublishStatus =
   | "QUEUED"
+  | "SCHEDULED"
   | "NOT_CONNECTED"
   | "UNSUPPORTED"
   | "ALREADY_UPLOADED";
@@ -112,6 +143,34 @@ export interface VideoPublishResult {
 export interface VideoPublishResponse {
   videoId: string;
   results: VideoPublishResult[];
+}
+
+export type ScheduledUploadStatus =
+  | "SCHEDULED"
+  | "QUEUED"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type ScheduledUploadSourceType = "VIDEO" | "ASSET";
+
+/**
+ * One row on the ScheduledPostsPage — a per-(source, platform) upload that
+ * is either still waiting for its scheduledAt to elapse or recently fired
+ * (the page filters to SCHEDULED on the server but the type covers both
+ * for forward-compatibility with an upcoming history view).
+ */
+export interface ScheduledUploadDTO {
+  id: string;
+  sourceId: string;
+  sourceType: ScheduledUploadSourceType;
+  platform: SocialPlatform;
+  status: ScheduledUploadStatus;
+  scheduledAt: string | null;
+  title?: string | null;
+  caption?: string | null;
+  hashtags?: string | null;
 }
 
 export type AssetType =

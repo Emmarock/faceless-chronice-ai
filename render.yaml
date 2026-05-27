@@ -101,6 +101,12 @@ services:
         sync: false
       - key: TIKTOK_CLIENT_SECRET
         sync: false
+      # LinkedIn Developer App — separate OAuth from Facebook (Instagram
+      # rides on the existing FACEBOOK_* credentials and needs no new vars).
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
 
       # ----- CORS (override the default allow-list if you want to lock to a specific Vercel URL) -----
       - key: CHRONICLEAI_CORS_ALLOWED_ORIGINS

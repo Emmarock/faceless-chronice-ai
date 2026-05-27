@@ -61,7 +61,12 @@ public class VideoController {
                                                         @RequestHeader("X-USER") String userId,
                                                         @RequestBody VideoPublishRequest request) {
         return ResponseEntity.accepted()
-                .body(videoPublishService.publish(videoId, userId, request.getPlatforms()));
+                .body(videoPublishService.publish(
+                        videoId,
+                        userId,
+                        request.getPlatforms(),
+                        request.getScheduledAt(),
+                        request.getOverrides()));
     }
 
     /**

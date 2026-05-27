@@ -7,6 +7,8 @@ import com.faceless.ai.model.SocialConnectionRequest;
 import com.faceless.ai.model.YouTubeOAuthExchangeRequest;
 import com.faceless.ai.service.authorization.FacebookOAuthService;
 import com.faceless.ai.service.SocialConnectionService;
+import com.faceless.ai.service.authorization.InstagramOAuthService;
+import com.faceless.ai.service.authorization.LinkedInOAuthService;
 import com.faceless.ai.service.authorization.TikTokOAuthService;
 import com.faceless.ai.service.authorization.TwitterOAuthService;
 import com.faceless.ai.service.authorization.YouTubeOAuthService;
@@ -26,6 +28,8 @@ public class SocialConnectionController {
     private final TwitterOAuthService twitterOAuthService;
     private final TikTokOAuthService tikTokOAuthService;
     private final FacebookOAuthService facebookOAuthService;
+    private final InstagramOAuthService instagramOAuthService;
+    private final LinkedInOAuthService linkedInOAuthService;
 
     @GetMapping
     public ResponseEntity<List<SocialConnectionDTO>> list(@RequestHeader("X-USER") String userId) {
@@ -87,6 +91,31 @@ public class SocialConnectionController {
                                                                 @RequestBody OAuthCodeExchangeRequest request) throws Exception {
         return ResponseEntity.ok(
                 facebookOAuthService.exchange(userId, request.code(), request.redirectUri()));
+    }
+
+    /**
+     * Exchanges a Facebook OAuth code for an Instagram Business connection.
+     * Same OAuth surface as Facebook — IG publishing rides on the Facebook
+     * Graph API — but discovers the IG Business Account linked to one of
+     * the user's Pages and stores its id + the Page token together.
+     */
+    @PostMapping("/instagram/oauth-exchange")
+    public ResponseEntity<SocialConnectionDTO> exchangeInstagram(@RequestHeader("X-USER") String userId,
+                                                                 @RequestBody OAuthCodeExchangeRequest request) throws Exception {
+        return ResponseEntity.ok(
+                instagramOAuthService.exchange(userId, request.code(), request.redirectUri()));
+    }
+
+    /**
+     * Exchanges a LinkedIn OAuth 2.0 authorization code for an access /
+     * refresh token pair and persists the member URN that every UGC post
+     * needs.
+     */
+    @PostMapping("/linkedin/oauth-exchange")
+    public ResponseEntity<SocialConnectionDTO> exchangeLinkedIn(@RequestHeader("X-USER") String userId,
+                                                                @RequestBody OAuthCodeExchangeRequest request) throws Exception {
+        return ResponseEntity.ok(
+                linkedInOAuthService.exchange(userId, request.code(), request.redirectUri()));
     }
 
     @DeleteMapping("/{platform}")

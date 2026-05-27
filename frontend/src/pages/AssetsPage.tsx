@@ -14,8 +14,7 @@ import type {
   AssetSummaryDTO,
   AssetType,
   SocialConnectionDTO,
-  SocialPlatform,
-  VideoPublishResult,
+  VideoPublishRequest,
 } from "../types/api";
 
 const PAGE_SIZE = 24;
@@ -263,33 +262,6 @@ function AssetCard({ asset, connections, isDeleting, onDelete }: AssetCardProps)
   const canDelete = !asset.jobId;
 
   const [publishOpen, setPublishOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<SocialPlatform>>(new Set());
-  const [publishing, setPublishing] = useState(false);
-  const [publishError, setPublishError] = useState<string | null>(null);
-  const [results, setResults] = useState<VideoPublishResult[]>([]);
-
-  const togglePlatform = (p: SocialPlatform) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(p)) next.delete(p);
-      else next.add(p);
-      return next;
-    });
-  };
-
-  const handlePublish = async () => {
-    if (selected.size === 0) return;
-    setPublishing(true);
-    setPublishError(null);
-    try {
-      const response = await publishAsset(asset.id, Array.from(selected));
-      setResults(response.results);
-    } catch (err) {
-      setPublishError(extractError(err));
-    } finally {
-      setPublishing(false);
-    }
-  };
 
   return (
     <div style={tile}>
@@ -364,17 +336,19 @@ function AssetCard({ asset, connections, isDeleting, onDelete }: AssetCardProps)
           </button>
         </div>
       </div>
-      {canPublish && publishOpen && (
+      {canPublish && (
         <PublishModal
+          open={publishOpen}
           title={asset.jobTitle ?? "Rendered clip"}
+          defaultTitle={asset.jobTitle ?? ""}
+          defaultDescription=""
           connections={connections}
-          selected={selected}
-          onToggle={togglePlatform}
-          onPublish={handlePublish}
-          publishing={publishing}
-          error={publishError}
-          results={results}
+          videoFormat={null}
           onClose={() => setPublishOpen(false)}
+          onSubmit={async (request: VideoPublishRequest) => {
+            const response = await publishAsset(asset.id, request);
+            return response.results;
+          }}
         />
       )}
     </div>

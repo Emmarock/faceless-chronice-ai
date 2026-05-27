@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
 import type {
-  SocialPlatform,
+  VideoPublishRequest,
   VideoPublishResponse,
   VideoSummaryDTO,
 } from "../types/api";
@@ -15,13 +15,19 @@ export async function getVideoByJobId(jobId: string): Promise<VideoSummaryDTO> {
   return data;
 }
 
+/**
+ * Queue (or schedule) a video for cross-posting. Accepts the full
+ * VideoPublishRequest shape so the redesigned PublishModal can pass
+ * per-platform overrides and a future {@code scheduledAt} instant in one
+ * call.
+ */
 export async function publishVideo(
   videoId: string,
-  platforms: SocialPlatform[],
+  request: VideoPublishRequest,
 ): Promise<VideoPublishResponse> {
   const { data } = await apiClient.post<VideoPublishResponse>(
     `/api/videos/${videoId}/publish`,
-    { platforms },
+    request,
   );
   return data;
 }

@@ -66,3 +66,36 @@ export async function exchangeFacebookCode(
   );
   return data;
 }
+
+/**
+ * Exchange a Facebook OAuth code for an Instagram Business connection.
+ * Same authorize popup as Facebook but with IG-specific scopes; backend
+ * looks up the IG Business Account linked to one of the user's Pages.
+ */
+export async function exchangeInstagramCode(
+  code: string,
+  redirectUri: string,
+): Promise<SocialConnectionDTO> {
+  const { data } = await apiClient.post<SocialConnectionDTO>(
+    "/api/social-connections/instagram/oauth-exchange",
+    { code, redirectUri },
+  );
+  return data;
+}
+
+/**
+ * Exchange a LinkedIn OAuth 2.0 authorization code for an access /
+ * refresh token pair and persist the connection. The backend handles
+ * userinfo lookup so the SocialConnectionDTO comes back with the member's
+ * display name in {@code accountHandle}.
+ */
+export async function exchangeLinkedInCode(
+  code: string,
+  redirectUri: string,
+): Promise<SocialConnectionDTO> {
+  const { data } = await apiClient.post<SocialConnectionDTO>(
+    "/api/social-connections/linkedin/oauth-exchange",
+    { code, redirectUri },
+  );
+  return data;
+}

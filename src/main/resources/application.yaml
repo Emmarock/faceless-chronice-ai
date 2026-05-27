@@ -192,6 +192,34 @@ chronicleai:
     app-id: ${FACEBOOK_APP_ID:}
     app-secret: ${FACEBOOK_APP_SECRET:}
     api-version: ${FACEBOOK_API_VERSION:v19.0}
+  # Instagram Business publishing rides on the Facebook Graph API, so the
+  # OAuth client id / secret are the chronicleai.facebook.* values above.
+  # This block exists so future IG-specific tuning (e.g. media-type defaults
+  # or alternate api versions) has a home, but it carries no required
+  # credentials of its own.
+  instagram:
+    # Reels-only is enforced upstream — IG carousel / image posts are out of
+    # scope for the cross-posting redesign. Toggle to "false" to allow
+    # eventual feed-image media_type uploads.
+    reels-only: ${INSTAGRAM_REELS_ONLY:true}
+  linkedin:
+    # LinkedIn Developer app credentials. The app needs the "Share on
+    # LinkedIn" and "Sign In with LinkedIn using OpenID Connect" products
+    # enabled, and the OAuth flow requests scopes:
+    #   openid profile email w_member_social
+    # Leave blank in dev to disable the connect flow; the LinkedIn card on
+    # the Connections page falls back to a "configure VITE_LINKEDIN_CLIENT_ID"
+    # hint instead of opening a broken authorize popup.
+    client-id: ${LINKEDIN_CLIENT_ID:}
+    client-secret: ${LINKEDIN_CLIENT_SECRET:}
+  # Background scheduler that drains SocialUpload rows with status=SCHEDULED
+  # onto the social-upload SQS queue once their scheduledAt has passed.
+  # poll-interval-ms controls the cadence — bigger = less DB pressure but
+  # coarser firing granularity. 30s is a good default; users perceive
+  # scheduled posts as "fired on time" up to ~minute-level precision.
+  scheduler:
+    poll-interval-ms: ${SCHEDULER_POLL_INTERVAL_MS:30000}
+    initial-delay-ms: ${SCHEDULER_INITIAL_DELAY_MS:15000}
 
 # Spring Boot Actuator. Render's health-check probe hits /actuator/health.
 # We also expose the liveness/readiness sub-probes so a future move to

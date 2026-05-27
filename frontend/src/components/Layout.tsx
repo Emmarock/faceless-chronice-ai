@@ -66,6 +66,9 @@ export function Layout() {
               <NavLink to="/connections" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 Connections
               </NavLink>
+              <NavLink to="/scheduled" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Scheduled
+              </NavLink>
             </>
           )}
           <NavLink to="/billing" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>

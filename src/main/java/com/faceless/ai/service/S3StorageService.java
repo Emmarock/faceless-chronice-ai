@@ -21,18 +21,22 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 
 @Service
 @Slf4j
 public class S3StorageService {
 
     private final S3Client s3Client;
+    private final S3Presigner s3Presigner;
     private final String bucket;
 
     @PostConstruct
@@ -54,15 +58,45 @@ public class S3StorageService {
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(accessKey, secretKey)));
 
+        S3Presigner.Builder presignerBuilder = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)));
+
         if (endpointUrl != null && !endpointUrl.isBlank()) {
             // LocalStack (or any S3-compatible store) — force path-style so the bucket
             // name appears in the URL path rather than as a DNS subdomain.
             builder.endpointOverride(URI.create(endpointUrl))
                    .forcePathStyle(true);
+            presignerBuilder.endpointOverride(URI.create(endpointUrl));
             log.info("S3 client using custom endpoint: {}", endpointUrl);
         }
 
         this.s3Client = builder.build();
+        this.s3Presigner = presignerBuilder.build();
+    }
+
+    /**
+     * Generate a time-limited HTTPS URL the platform's ingestion server can
+     * fetch directly. Used by Instagram and LinkedIn — both expect a video
+     * URL, not a multipart byte upload. The URL embeds the signed
+     * credentials; anyone holding it can read the object until {@code ttl}
+     * elapses, so callers should pick the shortest TTL that comfortably
+     * outlives the platform's ingestion window (IG uploads can take a
+     * couple of minutes to transcode).
+     *
+     * @param s3Url s3://{bucket}/{key}
+     * @param ttl   how long the URL stays valid
+     * @return signed HTTPS URL pointing at the object
+     */
+    public String presignedUrl(String s3Url, Duration ttl) {
+        String key = s3Url.substring(("s3://" + bucket + "/").length());
+        GetObjectRequest getReq = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        GetObjectPresignRequest presign = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(getReq)
+                .build();
+        return s3Presigner.presignGetObject(presign).url().toString();
     }
 
     private void ensureBucketExists() {

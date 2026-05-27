@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import {
   disconnect,
   exchangeFacebookCode,
+  exchangeInstagramCode,
+  exchangeLinkedInCode,
   exchangeTikTokCode,
   exchangeTwitterCode,
   exchangeYouTubeCode,
@@ -32,6 +34,12 @@ const PLATFORMS: PlatformMeta[] = [
     color: "#1877f2",
   },
   {
+    platform: "INSTAGRAM",
+    label: "Instagram",
+    description: "Publish Reels to your linked Instagram Business account.",
+    color: "#e1306c",
+  },
+  {
     platform: "TIKTOK",
     label: "TikTok",
     description: "Send rendered videos to your TikTok inbox to review and post.",
@@ -42,6 +50,12 @@ const PLATFORMS: PlatformMeta[] = [
     label: "Twitter / X",
     description: "Tweet rendered videos with the script title as the caption.",
     color: "#1d9bf0",
+  },
+  {
+    platform: "LINKEDIN",
+    label: "LinkedIn",
+    description: "Share videos on your LinkedIn feed.",
+    color: "#0a66c2",
   },
 ];
 
@@ -164,6 +178,30 @@ export function ConnectionsPage() {
       return;
     }
 
+    if (platform === "INSTAGRAM") {
+      try {
+        await connectInstagram();
+        await refresh();
+      } catch (err) {
+        setPlatformError(platform, { kind: "generic", message: extractError(err) });
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
+    if (platform === "LINKEDIN") {
+      try {
+        await connectLinkedIn();
+        await refresh();
+      } catch (err) {
+        setPlatformError(platform, { kind: "generic", message: extractError(err) });
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
     setBusy(null);
     setError(`No connect flow registered for ${platform}.`);
   };
@@ -226,6 +264,65 @@ export function ConnectionsPage() {
       `&state=${encodeURIComponent(state)}`;
     const { code } = await openOAuthPopup(url, state);
     await exchangeFacebookCode(code, redirectUri);
+  };
+
+  // Instagram Business publishing rides on the Facebook Graph API — the
+  // authorize dialog is the same one Facebook uses but with IG-specific
+  // scopes (instagram_basic + instagram_content_publish on top of the
+  // Page-management scopes). Reuses VITE_FACEBOOK_APP_ID, so no separate
+  // frontend env var is needed.
+  const connectInstagram = async () => {
+    const appId = import.meta.env.VITE_FACEBOOK_APP_ID as string | undefined;
+    if (!appId) {
+      throw new Error(
+        "VITE_FACEBOOK_APP_ID is not configured — Instagram publishing uses the Facebook App credentials.",
+      );
+    }
+    const apiVersion = (import.meta.env.VITE_FACEBOOK_API_VERSION as string | undefined) ?? "v25.0";
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const state = randomString(24);
+    const scope = [
+      "email",
+      "public_profile",
+      "pages_show_list",
+      "pages_read_engagement",
+      "business_management",
+      "instagram_basic",
+      "instagram_content_publish",
+    ].join(",");
+    const url =
+      `https://www.facebook.com/${apiVersion}/dialog/oauth` +
+      `?client_id=${encodeURIComponent(appId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scope)}` +
+      `&state=${encodeURIComponent(state)}`;
+    const { code } = await openOAuthPopup(url, state);
+    await exchangeInstagramCode(code, redirectUri);
+  };
+
+  // LinkedIn's authorize endpoint uses the v2 OAuth 2.0 code flow with
+  // server-side client_secret authentication — no PKCE. The backend handles
+  // the userinfo lookup so we get the member's display name and URN
+  // automatically.
+  const connectLinkedIn = async () => {
+    const clientId = import.meta.env.VITE_LINKEDIN_CLIENT_ID as string | undefined;
+    if (!clientId) {
+      throw new Error(
+        "VITE_LINKEDIN_CLIENT_ID is not configured — set it in the frontend env to connect LinkedIn.",
+      );
+    }
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    const state = randomString(24);
+    const scope = "openid profile email w_member_social";
+    const url =
+      "https://www.linkedin.com/oauth/v2/authorization" +
+      `?response_type=code&client_id=${encodeURIComponent(clientId)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}` +
+      `&scope=${encodeURIComponent(scope)}`;
+    const { code } = await openOAuthPopup(url, state);
+    await exchangeLinkedInCode(code, redirectUri);
   };
 
   const connectTikTok = async () => {

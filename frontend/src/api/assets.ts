@@ -3,7 +3,7 @@ import type {
   AssetSummaryDTO,
   AssetType,
   PagedAssetsDTO,
-  SocialPlatform,
+  VideoPublishRequest,
   VideoPublishResponse,
 } from "../types/api";
 
@@ -74,11 +74,11 @@ export async function reuseAssetInScene(
  */
 export async function publishAsset(
   assetId: string,
-  platforms: SocialPlatform[],
+  request: VideoPublishRequest,
 ): Promise<VideoPublishResponse> {
   const { data } = await apiClient.post<VideoPublishResponse>(
     `/api/assets/${assetId}/publish`,
-    { platforms },
+    request,
   );
   return data;
 }

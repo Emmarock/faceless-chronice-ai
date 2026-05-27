@@ -35,6 +35,7 @@ public class SocialConnectionService {
         connection.setAccessToken(request.accessToken());
         connection.setRefreshToken(request.refreshToken());
         connection.setAccountHandle(request.accountHandle());
+        connection.setProviderAccountId(request.providerAccountId());
         connection.setExpiresAt(request.expiresAt());
         connection.setConnectedAt(Instant.now());
 

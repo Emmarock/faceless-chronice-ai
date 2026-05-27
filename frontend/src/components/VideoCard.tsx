@@ -8,8 +8,7 @@ import {
 import { PublishModal } from "./PublishModal";
 import type {
   SocialConnectionDTO,
-  SocialPlatform,
-  VideoPublishResult,
+  VideoPublishRequest,
   VideoSummaryDTO,
 } from "../types/api";
 
@@ -23,33 +22,6 @@ interface VideoCardProps {
 export function VideoCard({ video, connections, anchorId }: VideoCardProps) {
   const src = useMemo(() => resolveStreamUrl(video.streamUrl), [video.streamUrl]);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<SocialPlatform>>(new Set());
-  const [publishing, setPublishing] = useState(false);
-  const [results, setResults] = useState<VideoPublishResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const togglePlatform = (p: SocialPlatform) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(p)) next.delete(p);
-      else next.add(p);
-      return next;
-    });
-  };
-
-  const handlePublish = async () => {
-    if (selected.size === 0) return;
-    setPublishing(true);
-    setError(null);
-    try {
-      const response = await publishVideo(video.videoId, Array.from(selected));
-      setResults(response.results);
-    } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setPublishing(false);
-    }
-  };
 
   return (
     <div id={anchorId} style={card}>
@@ -103,19 +75,19 @@ export function VideoCard({ video, connections, anchorId }: VideoCardProps) {
         </div>
       </div>
 
-      {pickerOpen && (
-        <PublishModal
-          title={video.title?.trim() ? video.title : "(untitled)"}
-          connections={connections}
-          selected={selected}
-          onToggle={togglePlatform}
-          onPublish={handlePublish}
-          publishing={publishing}
-          error={error}
-          results={results}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
+      <PublishModal
+        open={pickerOpen}
+        title={video.title?.trim() ? video.title : "(untitled)"}
+        defaultTitle={video.title ?? ""}
+        defaultDescription={video.description ?? ""}
+        connections={connections}
+        videoFormat={null}
+        onClose={() => setPickerOpen(false)}
+        onSubmit={async (request: VideoPublishRequest) => {
+          const response = await publishVideo(video.videoId, request);
+          return response.results;
+        }}
+      />
     </div>
   );
 }
@@ -135,14 +107,6 @@ function formatDate(value: string | null | undefined): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
-}
-
-function extractError(err: unknown): string {
-  if (typeof err === "object" && err !== null && "response" in err) {
-    const r = (err as { response?: { data?: { message?: string } } }).response;
-    if (r?.data?.message) return r.data.message;
-  }
-  return err instanceof Error ? err.message : "Could not publish video.";
 }
 
 const card: React.CSSProperties = {

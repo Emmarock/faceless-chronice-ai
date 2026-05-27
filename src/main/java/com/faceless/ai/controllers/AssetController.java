@@ -98,7 +98,12 @@ public class AssetController {
             @PathVariable UUID assetId,
             @RequestBody VideoPublishRequest request) {
         return ResponseEntity.accepted()
-                .body(videoPublishService.publishAsset(assetId, userId, request.getPlatforms()));
+                .body(videoPublishService.publishAsset(
+                        assetId,
+                        userId,
+                        request.getPlatforms(),
+                        request.getScheduledAt(),
+                        request.getOverrides()));
     }
 
     @DeleteMapping("/{assetId}")

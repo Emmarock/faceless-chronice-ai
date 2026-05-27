@@ -69,7 +69,7 @@ class FacebookUploadServiceTest {
         Path video = tempDir.resolve("clip.mp4");
         Files.write(video, new byte[]{0, 1, 2, 3});
 
-        VideoUploadRequest request = new VideoUploadRequest(
+        VideoUploadRequest request = VideoUploadRequest.legacy(
                 emailUserId, video, "Title", "Description");
 
         String videoId = service.uploadVideo(request).get();
@@ -103,7 +103,7 @@ class FacebookUploadServiceTest {
         Path video = tempDir.resolve("clip.mp4");
         Files.write(video, new byte[]{0});
 
-        VideoUploadRequest request = new VideoUploadRequest(
+        VideoUploadRequest request = VideoUploadRequest.legacy(
                 emailUserId, video, null, null);
 
         assertThatCode(() -> service.uploadVideo(request).get())

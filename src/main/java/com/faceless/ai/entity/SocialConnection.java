@@ -33,6 +33,15 @@ public class SocialConnection extends BaseEntity {
 
     private String accountHandle;
 
+    /**
+     * Provider-side stable id for the connected account — distinct from
+     * the human-readable handle. Used by Instagram (IG Business Account
+     * id, required on every Graph API call) and LinkedIn (member URN,
+     * e.g. {@code urn:li:person:abc123}, required to author posts).
+     * Other platforms leave it null and rely on the access token alone.
+     */
+    private String providerAccountId;
+
     private Instant connectedAt;
 
     private Instant expiresAt;

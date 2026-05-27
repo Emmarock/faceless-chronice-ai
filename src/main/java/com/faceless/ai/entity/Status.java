@@ -8,6 +8,8 @@ public enum Status {
 
     QUEUED,
     PENDING,
+    SCHEDULED,
+    CANCELLED,
     PROCESSING,
     COMPLETED,
     FAILED
