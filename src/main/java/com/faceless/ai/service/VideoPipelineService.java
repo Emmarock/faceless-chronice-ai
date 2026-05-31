@@ -24,6 +24,16 @@ public class VideoPipelineService {
     public static final String CLIPS_DIR = "./output/files/clips/";
     public static final String FINAL_DIR = "./output/files/final/";
 
+    /**
+     * Seconds of extra video laid down past the narration before {@code -shortest}
+     * trims the output back to the audio length. This guards against the looped
+     * images falling a few frames short of the audio (float rounding of
+     * {@code durationSec / n}), which would otherwise let {@code -shortest} clip
+     * the tail of the narration. It is never present in the final clip — the
+     * muxer stops at the (shorter) audio stream.
+     */
+    private static final double VIDEO_COVERAGE_PAD_SEC = 0.5;
+
     private final TtsService ttsService;
 
     // ------------------------------------------------------------------ //
@@ -47,9 +57,10 @@ public class VideoPipelineService {
      * for both modes.
      *
      * <p>{@code -stream_loop -1} loops the input indefinitely if it's shorter
-     * than the narration; {@code -t durationSec} truncates the result. The
-     * source's own audio is dropped via {@code -map 0:v}, then the narration
-     * track is mapped from the second input.
+     * than the narration; {@code -shortest} then ends the clip exactly at the
+     * narration so the video never outruns the audio. The source's own audio is
+     * dropped via {@code -map 0:v}, then the narration track is mapped from the
+     * second input.
      */
     public Path assembleSceneFromVideo(Path sourceVideo, Path audio, String jobId, int sceneId,
                                        double durationSec) throws Exception {
@@ -85,8 +96,10 @@ public class VideoPipelineService {
                 "-filter_complex", filter,
                 "-map", "[v]",
                 "-map", "1:a",
-                // Truncate to narration length even when the source is longer.
-                "-t", String.valueOf(durationSec),
+                // Cap the looped video just past the narration, then let
+                // -shortest end the clip exactly at the audio so it never
+                // plays on after the voice finishes.
+                "-t", String.valueOf(durationSec + VIDEO_COVERAGE_PAD_SEC),
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-threads", "1",
@@ -94,6 +107,7 @@ public class VideoPipelineService {
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-b:a", "192k",
+                "-shortest",
                 clipPath.toString()
         };
 
@@ -113,7 +127,10 @@ public class VideoPipelineService {
                 jobId, sceneId, durationSec, n, watermarkText != null);
 
         Path clipPath = Paths.get(CLIPS_DIR, "clip_" + jobId + "_scene_" + sceneId + ".mp4");
-        double durationPerImage = durationSec / n;
+        // Lay the images down slightly past the narration so they always cover
+        // its full length; -shortest (below) trims the muxed output back to the
+        // audio so the video never plays on after the voice ends.
+        double durationPerImage = (durationSec + VIDEO_COVERAGE_PAD_SEC) / n;
 
         List<String> cmd = new ArrayList<>();
         cmd.add("ffmpeg"); cmd.add("-y");
@@ -156,6 +173,9 @@ public class VideoPipelineService {
         cmd.add("-pix_fmt"); cmd.add("yuv420p");
         cmd.add("-c:a"); cmd.add("aac");
         cmd.add("-b:a"); cmd.add("192k");
+        // End the clip with the shortest stream (the narration) so the looped
+        // images don't keep playing after the audio finishes.
+        cmd.add("-shortest");
         cmd.add(clipPath.toString());
 
         runProcess(cmd.toArray(new String[0]));
@@ -195,7 +215,16 @@ public class VideoPipelineService {
     //  Duration helpers
     // ------------------------------------------------------------------ //
 
-    /** Returns actual audio duration + 0.5 s buffer via ffprobe. */
+    /**
+     * Returns the actual audio (narration) duration in seconds via ffprobe.
+     *
+     * <p>This is the single source of truth for "how long should this scene
+     * be". It is deliberately unpadded: the scene assemblers add a tiny
+     * coverage pad to the <em>video</em> stream and then use {@code -shortest}
+     * to trim the muxed output back to exactly this audio length, so the video
+     * never outruns the narration. Stored/aggregated durations therefore match
+     * what the viewer actually hears.
+     */
     public double getAudioDurationSeconds(Path audioPath) throws Exception {
         String[] cmd = {
                 "ffprobe", "-v", "error",
@@ -211,7 +240,7 @@ public class VideoPipelineService {
         process.waitFor();
 
         try {
-            return Double.parseDouble(output) + 0.5;
+            return Double.parseDouble(output);
         } catch (NumberFormatException e) {
             log.warn("Could not parse audio duration '{}', falling back to 5 s", output);
             return 5.0;
