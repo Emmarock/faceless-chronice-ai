@@ -3,6 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { createTwin, deleteTwin, listLessons, listTwins } from "../api/tutor";
 import type { LessonDTO, TwinDTO } from "../types/api";
 
+// Reject oversized clips client-side before uploading. Kept comfortably under
+// the backend's 200MB multipart cap — a short avatar-training clip (15–30s) is
+// only a few MB, so this guards against accidental large/long recordings.
+const MAX_VIDEO_MB = 150;
+const MAX_VIDEO_BYTES = MAX_VIDEO_MB * 1024 * 1024;
+
 export function TutorTwinsPage() {
   const [twins, setTwins] = useState<TwinDTO[]>([]);
   const [lessons, setLessons] = useState<LessonDTO[]>([]);
@@ -143,6 +149,14 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
   }, [previewUrl]);
 
   const setRecorded = (b: Blob) => {
+    if (b.size > MAX_VIDEO_BYTES) {
+      onError(
+        `That clip is ${formatMb(b.size)} — the limit is ${MAX_VIDEO_MB}MB. ` +
+          `Record a shorter clip (15–30s is plenty) or upload a smaller file.`,
+      );
+      return;
+    }
+    onError(""); // clear any prior size error on a valid selection
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setBlob(b);
     setPreviewUrl(URL.createObjectURL(b));
@@ -251,6 +265,11 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
           {submitting ? "Submitting…" : "Train twin"}
         </button>
       </div>
+
+      <p style={{ color: "#666", fontSize: 12, marginTop: 10, marginBottom: 0 }}>
+        MP4 / WebM / MOV · up to {MAX_VIDEO_MB}MB
+        {blob ? ` · selected ${formatMb(blob.size)}` : ""}
+      </p>
     </div>
   );
 }
@@ -270,6 +289,10 @@ function StatusBadge({ status }: { status: string }) {
       {s.label}
     </span>
   );
+}
+
+function formatMb(bytes: number): string {
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 function extractError(err: unknown): string {
