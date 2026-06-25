@@ -232,6 +232,16 @@ public class ChatGPTService {
     }
 
     /**
+     * Public system+user chat helper for callers outside the documentary
+     * pipeline (e.g. the AI-tutor {@code OpenAiLessonService}) that just need a
+     * single completion. Thin pass-through to {@link #callChatCompletion} so
+     * the OpenAI key/endpoint/error handling stay in one place.
+     */
+    public String chat(String systemPrompt, String userContent) throws Exception {
+        return callChatCompletion(systemPrompt, userContent);
+    }
+
+    /**
      * Calls OpenAI chat/completions with a system + user message, validates the
      * response, and returns the assistant's content string. Throws
      * {@link ExternalApiException} on non-2xx responses or missing content so

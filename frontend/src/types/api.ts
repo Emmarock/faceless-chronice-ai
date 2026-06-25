@@ -198,3 +198,38 @@ export interface PagedAssetsDTO {
   totalItems: number;
   totalPages: number;
 }
+
+// ---------------------------------------------------------------------------
+// AI Tutor Twin
+// ---------------------------------------------------------------------------
+
+/** Lifecycle status shared by twins and lessons (mirrors backend Status). */
+export type TutorStatus = "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+
+export interface TwinDTO {
+  id: string;
+  name: string;
+  status: TutorStatus;
+  ready: boolean;
+  errorMessage?: string | null;
+  createdOn: string;
+}
+
+export interface LessonDTO {
+  id: string;
+  twinId: string;
+  topic: string;
+  style?: string | null;
+  status: TutorStatus;
+  scriptContent?: string | null;
+  durationSeconds?: number | null;
+  hasVideo: boolean;
+  errorMessage?: string | null;
+  createdOn: string;
+}
+
+export interface CreateLessonRequest {
+  twinId: string;
+  topic: string;
+  style?: string;
+}

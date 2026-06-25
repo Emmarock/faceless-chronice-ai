@@ -75,6 +75,8 @@ public class BillingProperties {
             case DEBIT_VOICE          -> creditCosts.voice;
             case DEBIT_VIDEO_CLIP     -> creditCosts.videoClip;
             case DEBIT_VIDEO_ASSEMBLY -> creditCosts.videoAssembly;
+            case DEBIT_TWIN_TRAINING  -> creditCosts.twinTraining;
+            case DEBIT_LESSON         -> creditCosts.lesson;
             default -> 0;
         };
     }
@@ -118,6 +120,10 @@ public class BillingProperties {
         private int voice = 5;
         private int videoClip = 3;
         private int videoAssembly = 5;
+        /** AI tutor twin training (HeyGen avatar + voice clone). */
+        private int twinTraining = 100;
+        /** A single AI tutor lesson video render. */
+        private int lesson = 40;
     }
 
     @Getter

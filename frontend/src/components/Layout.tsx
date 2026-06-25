@@ -60,6 +60,9 @@ export function Layout() {
               <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 Videos
               </NavLink>
+              <NavLink to="/tutor" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                AI Tutor
+              </NavLink>
               <NavLink to="/assets" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 Assets
               </NavLink>

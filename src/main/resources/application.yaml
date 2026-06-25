@@ -65,6 +65,12 @@ chronicleai:
     provider: ${TTS_PROVIDER:openai}   # piper | elevenlabs | yarngpt | openai | google
   image:
     provider: ${IMAGE_PROVIDER:pexels}  # pexels | openai
+  lesson:
+    # AI Tutor lesson-script provider. openai reuses the same OpenAI
+    # integration the documentary pipeline uses (OPENAI_KEY); claude uses the
+    # Anthropic SDK (ANTHROPIC_API_KEY, claude-opus-4-8). HeyGen still renders
+    # the video either way.
+    provider: ${LESSON_PROVIDER:openai}  # openai | claude
   video:
     # Source-clip provider used for scenes whose mediaMode == VIDEO_CLIP.
     # pexels = stock footage (uses chronicleai.pexels.api-key).
@@ -115,6 +121,24 @@ chronicleai:
     language-code:  ${GOOGLE_TTS_LANG:en-US}
     voice:          ${GOOGLE_TTS_VOICE:en-US-Chirp-HD-F}
     audio-encoding: ${GOOGLE_TTS_ENCODING:MP3}
+  # AI Tutor Twin: Anthropic (Claude) writes the spoken lesson scripts and
+  # HeyGen renders the user's avatar/voice reading them. Both features stay
+  # dormant until their API key is set — TwinService / LessonService fail fast
+  # with a clear "not configured" message instead of crashing.
+  anthropic:
+    api-key: ${ANTHROPIC_API_KEY:}
+    model:   ${ANTHROPIC_MODEL:claude-opus-4-8}
+  heygen:
+    api-key:    ${HEYGEN_API_KEY:}
+    base-url:   ${HEYGEN_BASE_URL:https://api.heygen.com}
+    upload-url: ${HEYGEN_UPLOAD_URL:https://upload.heygen.com}
+    # Default HeyGen voice used when a twin has no cloned voice id yet
+    # (voice cloning is plan-gated on HeyGen). Leave blank to require a clone.
+    default-voice-id: ${HEYGEN_DEFAULT_VOICE_ID:453c20e1525a429080e2ad9e4b26f2cd}
+    # How often TwinLessonPoller polls HeyGen for avatar-training / render
+    # completion. 30s mirrors the social-upload scheduler cadence.
+    poll-interval-ms: ${HEYGEN_POLL_INTERVAL_MS:30000}
+    initial-delay-ms: ${HEYGEN_INITIAL_DELAY_MS:20000}
   aws:
     # S3 client config. The S3_* vars let you point S3 at a different
     # provider (e.g. Cloudflare R2) while keeping SQS on real AWS — both
@@ -170,6 +194,10 @@ chronicleai:
       voice:           5
       video-clip:      3
       video-assembly:  5
+      # AI Tutor Twin costs. Training a twin (avatar + voice clone) is a
+      # one-off; each lesson render is metered separately.
+      twin-training:   100
+      lesson:          40
     # Flat upfront charge at job creation, by format. Sized so the Free
     # tier's 100 credits buys ~2 Reels (50 each) — tune to taste.
     job-budgets:

@@ -20,6 +20,9 @@ import { TermsOfServicePage } from "./pages/TermsOfServicePage";
 import { DataDeletionPage } from "./pages/DataDeletionPage";
 import { PricingPage } from "./pages/PricingPage";
 import { BillingPage } from "./pages/BillingPage";
+import { TutorTwinsPage } from "./pages/TutorTwinsPage";
+import { CreateLessonPage } from "./pages/CreateLessonPage";
+import { LessonDetailPage } from "./pages/LessonDetailPage";
 
 export function App() {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";
@@ -55,6 +58,9 @@ export function App() {
                   <Route path="jobs/:jobId" element={<JobDetailPage />} />
                   <Route path="videos" element={<VideosListPage />} />
                   <Route path="videos/job/:jobId" element={<VideoDetailPage />} />
+                  <Route path="tutor" element={<TutorTwinsPage />} />
+                  <Route path="tutor/lessons/new" element={<CreateLessonPage />} />
+                  <Route path="tutor/lessons/:id" element={<LessonDetailPage />} />
                   <Route path="assets" element={<AssetsPage />} />
                   <Route path="connections" element={<ConnectionsPage />} />
                   <Route path="scheduled" element={<ScheduledPostsPage />} />

@@ -28,6 +28,10 @@ public enum LedgerKind {
     DEBIT_VIDEO_CLIP,
     /** Spent on the final FFmpeg assembly + upload. */
     DEBIT_VIDEO_ASSEMBLY,
+    /** Spent training an AI tutor twin (HeyGen avatar + voice clone). */
+    DEBIT_TWIN_TRAINING,
+    /** Spent generating a single AI tutor lesson video. */
+    DEBIT_LESSON,
     /**
      * Flat upfront charge at job creation that covers the whole pipeline
      * (script + assets + assembly). Lets us fail fast on out-of-credits
