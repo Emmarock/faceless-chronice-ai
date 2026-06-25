@@ -1,4 +1,4 @@
-package com.faceless.ai.service;
+package com.faceless.ai.service.lesson;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
@@ -9,20 +9,18 @@ import com.anthropic.models.messages.ThinkingConfigAdaptive;
 import com.faceless.ai.exceptions.ExternalApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
- * Generates AI-tutor lesson scripts with Claude (the Anthropic Java SDK).
- *
- * <p>This is intentionally separate from {@link ChatGPTService}: the faceless
- * video pipeline produces scene-structured JSON via OpenAI, whereas a tutor
- * lesson is a single block of clean spoken narration the HeyGen avatar reads
- * verbatim — so we use Claude ({@code claude-opus-4-8}) with adaptive thinking
- * and a teaching-focused system prompt.
+ * Claude-backed lesson script generator (the Anthropic Java SDK,
+ * {@code claude-opus-4-8} with adaptive thinking). Active when
+ * {@code chronicleai.lesson.provider=claude}.
  */
 @Service
 @Slf4j
-public class ClaudeLessonService {
+@ConditionalOnProperty(name = "chronicleai.lesson.provider", havingValue = "claude")
+public class ClaudeLessonService implements LessonScriptGenerator {
 
     @Value("${chronicleai.anthropic.api-key:}")
     private String apiKey;
@@ -32,46 +30,25 @@ public class ClaudeLessonService {
     /** Lazily built once the @Value fields are injected; reused across calls. */
     private volatile AnthropicClient client;
 
-    private static final String SYSTEM_PROMPT = """
-            You are a warm, clear teacher writing the spoken script for a short
-            lesson video. The script will be read aloud, word for word, by an AI
-            avatar of the presenter — so write ONLY the words to be spoken.
-
-            Rules:
-            - Plain spoken prose. No markdown, no headings, no bullet points,
-              no stage directions, no speaker labels, no scene numbers.
-            - Open with a one-sentence hook, teach the core idea in a logical
-              flow with a concrete example or analogy, then close with a short
-              recap.
-            - Target roughly 150–250 words (about 60–110 seconds spoken).
-            - Conversational and encouraging; address the learner as "you".
-            - Do not mention that you are an AI or that this is a script.
-            """;
-
+    @Override
     public boolean isConfigured() {
         return apiKey != null && !apiKey.isBlank();
     }
 
-    /**
-     * Writes the spoken narration for a lesson on {@code topic} in the given
-     * {@code style} (nullable). Returns plain text suitable for HeyGen to read.
-     */
+    @Override
     public String generateLessonScript(String topic, String style) {
         if (!isConfigured()) {
             throw new IllegalStateException(
-                    "Claude is not configured — set ANTHROPIC_API_KEY to enable the AI Tutor feature.");
+                    "Claude is not configured — set ANTHROPIC_API_KEY (or switch chronicleai.lesson.provider to openai).");
         }
         log.info("Generating lesson script with {} for topic: {}", model, topic);
-
-        String userPrompt = "Topic to teach:\n" + topic
-                + (style != null && !style.isBlank() ? "\n\nDesired tone/style:\n" + style : "");
 
         MessageCreateParams params = MessageCreateParams.builder()
                 .model(model)
                 .maxTokens(8000L)
                 .thinking(ThinkingConfigAdaptive.builder().build())
                 .system(SYSTEM_PROMPT)
-                .addUserMessage(userPrompt)
+                .addUserMessage(buildUserPrompt(topic, style))
                 .build();
 
         try {

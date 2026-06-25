@@ -11,6 +11,7 @@ import com.faceless.ai.model.CreateLessonRequest;
 import com.faceless.ai.repository.AppUserRepository;
 import com.faceless.ai.repository.LessonRepository;
 import com.faceless.ai.repository.TwinRepository;
+import com.faceless.ai.service.lesson.LessonScriptGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,16 +34,17 @@ public class LessonService {
 
     private final LessonRepository lessonRepository;
     private final TwinRepository twinRepository;
-    private final ClaudeLessonService claudeLessonService;
+    private final LessonScriptGenerator lessonScriptGenerator;
     private final HeyGenService heyGenService;
     private final SubscriptionService subscriptionService;
     private final AppUserRepository appUserRepository;
 
     @Transactional
     public Lesson createLesson(String userId, CreateLessonRequest request) {
-        if (!claudeLessonService.isConfigured() || !heyGenService.isConfigured()) {
+        if (!lessonScriptGenerator.isConfigured() || !heyGenService.isConfigured()) {
             throw new ExternalApiException(
-                    "AI Tutor is not configured — set ANTHROPIC_API_KEY and HEYGEN_API_KEY to generate lessons.");
+                    "AI Tutor is not configured — set HEYGEN_API_KEY and the configured lesson "
+                            + "provider's API key (OPENAI_KEY by default, or ANTHROPIC_API_KEY for claude).");
         }
         if (request.getTopic() == null || request.getTopic().isBlank()) {
             throw new IllegalArgumentException("A lesson topic is required.");

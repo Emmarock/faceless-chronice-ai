@@ -8,6 +8,7 @@ import com.faceless.ai.entity.Subscription;
 import com.faceless.ai.entity.Twin;
 import com.faceless.ai.repository.LessonRepository;
 import com.faceless.ai.repository.TwinRepository;
+import com.faceless.ai.service.lesson.LessonScriptGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -46,7 +47,7 @@ public class TwinLessonPoller {
     private final TwinRepository twinRepository;
     private final LessonRepository lessonRepository;
     private final HeyGenService heyGenService;
-    private final ClaudeLessonService claudeLessonService;
+    private final LessonScriptGenerator lessonScriptGenerator;
     private final S3StorageService s3StorageService;
     private final SubscriptionService subscriptionService;
     private final BillingProperties billingProperties;
@@ -125,7 +126,7 @@ public class TwinLessonPoller {
         Twin twin = twinOpt.get();
         try {
             if (lesson.getScriptContent() == null || lesson.getScriptContent().isBlank()) {
-                String script = claudeLessonService.generateLessonScript(lesson.getTopic(), lesson.getStyle());
+                String script = lessonScriptGenerator.generateLessonScript(lesson.getTopic(), lesson.getStyle());
                 lesson.setScriptContent(script);
                 lesson.setStatus(Status.PROCESSING);
                 touch(lesson);
