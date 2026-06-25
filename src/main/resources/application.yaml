@@ -16,6 +16,13 @@ spring:
   threads:
     virtual:
       enabled: true
+  servlet:
+    # Multipart upload limits. Spring's defaults are 1MB/10MB, far too small
+    # for video — a short 720p clip is easily several MB. Sized for AI-tutor
+    # twin source clips and source-video asset uploads.
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:200MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:220MB}
   jpa:
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:validate}   # create-drop / validate / update / none
