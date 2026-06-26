@@ -308,23 +308,24 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
         onChange={(e) => setName(e.target.value)}
       />
 
-      {/* Teleprompter: words to read aloud while recording. Highlighted once
-          the countdown starts so it reads as the active script. */}
-      <div
-        style={{
-          marginTop: 12,
-          background: "#0f1115",
-          border: `1px solid ${recording || counting ? "#3b5bdb" : "#2a2d33"}`,
-          borderRadius: 8,
-          padding: 14,
-          transition: "border-color 0.2s",
-        }}
-      >
-        <div style={{ fontSize: 12, color: recording ? "#7c93ff" : "#888", fontWeight: 600, marginBottom: 6 }}>
-          {recording ? "● Recording — read this aloud" : "Read this aloud (~30 seconds)"}
+      {/* Before recording, show the script as a plain box. Once the countdown
+          starts it moves onto the camera preview (teleprompter overlay below). */}
+      {!recording && !counting && (
+        <div
+          style={{
+            marginTop: 12,
+            background: "#0f1115",
+            border: "1px solid #2a2d33",
+            borderRadius: 8,
+            padding: 14,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#888", fontWeight: 600, marginBottom: 6 }}>
+            Read this aloud (~30 seconds)
+          </div>
+          <p style={{ margin: 0, color: "#e6e6e6", fontSize: 16, lineHeight: 1.6 }}>{RECORDING_SCRIPT}</p>
         </div>
-        <p style={{ margin: 0, color: "#e6e6e6", fontSize: 16, lineHeight: 1.6 }}>{RECORDING_SCRIPT}</p>
-      </div>
+      )}
 
       <div style={{ position: "relative", marginTop: 12, background: "#0f1115", borderRadius: 8, overflow: "hidden" }}>
         {/* Live camera (during the countdown and while recording) uses the <video> ref. */}
@@ -378,10 +379,36 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
               padding: "4px 10px",
               fontSize: 12,
               fontWeight: 600,
+              zIndex: 2,
             }}
           >
             <span style={{ width: 8, height: 8, borderRadius: 999, background: "#ef4444", display: "inline-block" }} />
             REC
+          </div>
+        )}
+
+        {/* Teleprompter overlay on the camera preview — read this while looking
+            at the lens. Sits over the lower part of the video so your eyeline
+            stays near the camera. */}
+        {(recording || counting) && (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              maxHeight: "60%",
+              overflowY: "auto",
+              zIndex: 3,
+              padding: "28px 18px 16px",
+              background: "linear-gradient(to top, rgba(0,0,0,0.88) 30%, rgba(0,0,0,0))",
+              color: "#fff",
+              fontSize: 18,
+              lineHeight: 1.6,
+              textAlign: "center",
+            }}
+          >
+            {RECORDING_SCRIPT}
           </div>
         )}
       </div>
