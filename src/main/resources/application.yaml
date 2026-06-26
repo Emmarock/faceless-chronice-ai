@@ -9,8 +9,16 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: ${DB_DRIVER:com.mysql.cj.jdbc.Driver}
     hikari:
-      maxLifetime: 540000
-      idleTimeout: 300000
+      # maxLifetime must stay UNDER the DB/proxy idle-connection timeout, or
+      # Hikari hands out connections the server already closed ("No operations
+      # allowed after connection closed"). Serverless MySQL/TiDB front-ends
+      # often drop idle connections around ~5 min, so keep this comfortably
+      # below that. keepaliveTime pings idle connections to keep them warm and
+      # evict dead ones before they're handed out. Constraints: keepaliveTime
+      # < maxLifetime, and idleTimeout < maxLifetime.
+      maxLifetime: ${DB_MAX_LIFETIME_MS:280000}
+      keepaliveTime: ${DB_KEEPALIVE_MS:120000}
+      idleTimeout: ${DB_IDLE_TIMEOUT_MS:240000}
       connectionTimeout: 30000
       validationTimeout: 5000
   threads:
