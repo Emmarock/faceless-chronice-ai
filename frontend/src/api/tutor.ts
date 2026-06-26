@@ -10,15 +10,21 @@ import type { CreateLessonRequest, LessonDTO, TwinDTO } from "../types/api";
  * avatar + cloned voice). Returns the QUEUED/PROCESSING twin — poll
  * {@link getTwin} until {@code ready}.
  */
-export async function createTwin(name: string, video: Blob): Promise<TwinDTO> {
+export async function createTwin(name: string, video: Blob, audio?: Blob | null): Promise<TwinDTO> {
   const form = new FormData();
-  // Give the recorded blob a filename so the backend infers the right
-  // content-type extension when uploading to HeyGen.
-  const file = video instanceof File ? video : new File([video], "twin.webm", { type: video.type || "video/webm" });
-  form.append("video", file);
+  // Give blobs filenames so the backend infers the right content-type
+  // extension when uploading to HeyGen.
+  form.append("video", asFile(video, "twin.webm", "video/webm"));
+  if (audio) form.append("audio", asFile(audio, "voice.mp3", "audio/mpeg"));
   if (name) form.append("name", name);
   const { data } = await apiClient.post<TwinDTO>("/api/twins", form);
   return data;
+}
+
+/** Preserve an uploaded File's name/type; wrap a raw recorded Blob with a sensible default. */
+function asFile(blob: Blob, fallbackName: string, fallbackType: string): File {
+  if (blob instanceof File) return blob;
+  return new File([blob], fallbackName, { type: blob.type || fallbackType });
 }
 
 export async function listTwins(): Promise<TwinDTO[]> {

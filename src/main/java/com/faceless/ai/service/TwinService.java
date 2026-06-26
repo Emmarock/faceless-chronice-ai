@@ -43,13 +43,14 @@ public class TwinService {
     private String ffmpegPath;
 
     @Transactional
-    public Twin createTwin(String userId, String name, MultipartFile videoFile) throws Exception {
+    public Twin createTwin(String userId, String name, MultipartFile videoFile, MultipartFile audioFile)
+            throws Exception {
         if (!heyGenService.isConfigured()) {
             throw new ExternalApiException(
                     "AI Tutor is not configured — set HEYGEN_API_KEY to enable twin creation.");
         }
         if (videoFile == null || videoFile.isEmpty()) {
-            throw new IllegalArgumentException("A source video clip is required to create a twin.");
+            throw new IllegalArgumentException("A source video or photo is required to create a twin.");
         }
         String twinName = (name == null || name.isBlank()) ? "My teaching twin" : name.trim();
 
@@ -58,10 +59,10 @@ public class TwinService {
 
         // Stash the clip in S3 (our record + UI playback of the source) and
         // create the row before debiting so the ledger can reference the id.
-        Path temp = Files.createTempFile("twin-src-", suffixFor(videoFile));
+        Path temp = Files.createTempFile("twin-src-", suffixFor(videoFile, ".mp4"));
         try {
             videoFile.transferTo(temp.toFile());
-            String key = "twins/" + userId + "/" + UUID.randomUUID() + suffixFor(videoFile);
+            String key = "twins/" + userId + "/" + UUID.randomUUID() + suffixFor(videoFile, ".mp4");
             String sourceUrl = s3StorageService.upload(temp, key);
 
             Twin twin = twinRepository.save(Twin.builder()
@@ -89,11 +90,14 @@ public class TwinService {
                 String talkingPhotoId = heyGenService.uploadTalkingPhoto(image);
                 twin.setHeygenAvatarId(talkingPhotoId);
 
-                // Best-effort voice clone from the clip's audio. Non-fatal: a
-                // failure — or a photo-only upload with no audio — leaves the
-                // twin on the configured default voice rather than failing the
-                // whole twin.
-                String voiceId = tryCloneVoice(temp, videoFile.getContentType(), twinName);
+                // Best-effort voice clone. Prefer an explicitly uploaded audio
+                // sample (the "photo + voice" path); otherwise fall back to the
+                // video's own audio track. Non-fatal: any failure — or a
+                // photo-only upload with no audio — leaves the twin on the
+                // configured default voice rather than failing the whole twin.
+                String voiceId = (audioFile != null && !audioFile.isEmpty())
+                        ? tryCloneVoiceFromUpload(audioFile, twinName)
+                        : tryCloneVoice(temp, videoFile.getContentType(), twinName);
                 if (voiceId != null) twin.setHeygenVoiceId(voiceId);
 
                 twin.setStatus(Status.COMPLETED);
@@ -143,6 +147,31 @@ public class TwinService {
             if (audio != null) {
                 try {
                     Files.deleteIfExists(audio);
+                } catch (Exception ignore) {
+                    // best-effort cleanup
+                }
+            }
+        }
+    }
+
+    /**
+     * Clones the voice from an explicitly uploaded audio sample (the
+     * "photo + voice" path). Non-fatal — returns null on any failure so the
+     * twin keeps the default voice.
+     */
+    private String tryCloneVoiceFromUpload(MultipartFile audioFile, String name) {
+        Path temp = null;
+        try {
+            temp = Files.createTempFile("twin-voice-", suffixFor(audioFile, ".mp3"));
+            audioFile.transferTo(temp.toFile());
+            return heyGenService.cloneVoice(temp, name + " voice");
+        } catch (Exception e) {
+            log.warn("Voice clone from uploaded audio failed for '{}': {} — using the default voice.", name, e.getMessage());
+            return null;
+        } finally {
+            if (temp != null) {
+                try {
+                    Files.deleteIfExists(temp);
                 } catch (Exception ignore) {
                     // best-effort cleanup
                 }
@@ -237,13 +266,13 @@ public class TwinService {
         }
     }
 
-    private static String suffixFor(MultipartFile file) {
+    private static String suffixFor(MultipartFile file, String fallback) {
         String name = file.getOriginalFilename();
         if (name != null) {
             int dot = name.lastIndexOf('.');
             if (dot >= 0 && dot < name.length() - 1) return name.substring(dot);
         }
-        return ".mp4";
+        return fallback;
     }
 
     private static String truncate(String s) {

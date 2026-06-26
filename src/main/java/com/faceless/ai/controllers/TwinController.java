@@ -34,12 +34,19 @@ public class TwinController {
 
     private final TwinService twinService;
 
+    /**
+     * {@code video} is the primary likeness media — a recorded/uploaded video
+     * OR a still photo. {@code audio} is an optional separate voice sample used
+     * for cloning; when omitted, the voice is cloned from the video's own audio
+     * (and a photo-only upload uses the default voice).
+     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TwinDTO> create(@RequestHeader("X-USER") String userId,
                                           @RequestParam("video") MultipartFile video,
+                                          @RequestParam(value = "audio", required = false) MultipartFile audio,
                                           @RequestParam(value = "name", required = false) String name)
             throws Exception {
-        Twin twin = twinService.createTwin(userId, name, video);
+        Twin twin = twinService.createTwin(userId, name, video, audio);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(TwinDTO.from(twin));
     }
 

@@ -269,6 +269,9 @@ public class HeyGenService {
         if (name.endsWith(".mp3"))  return "audio/mpeg";
         if (name.endsWith(".wav"))  return "audio/wav";
         if (name.endsWith(".m4a"))  return "audio/mp4";
+        if (name.endsWith(".aac"))  return "audio/aac";
+        if (name.endsWith(".ogg"))  return "audio/ogg";
+        if (name.endsWith(".flac")) return "audio/flac";
         return "application/octet-stream";
     }
 
