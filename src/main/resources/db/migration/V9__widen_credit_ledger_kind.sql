@@ -1,0 +1,13 @@
+-- credit_ledger.kind must accept every LedgerKind, including the AI-tutor
+-- additions DEBIT_TWIN_TRAINING and DEBIT_LESSON.
+--
+-- On some deployments this column exists as a native ENUM(...) (or a narrower
+-- VARCHAR) that only lists the original kinds — created before V4's
+-- `CREATE TABLE IF NOT EXISTS` ran, so V4 never redefined it. Inserting a new
+-- kind then fails with "Data truncated for column 'kind' at row 1" (MySQL/TiDB
+-- error 1265: value not in the ENUM's allowed set).
+--
+-- Redefine it as a plain, wide VARCHAR so it accepts any LedgerKind string and
+-- future additions just work. Converting an ENUM to VARCHAR preserves the
+-- existing label values; widening a VARCHAR is a no-op for stored data.
+ALTER TABLE credit_ledger MODIFY COLUMN kind VARCHAR(64) NOT NULL;

@@ -40,7 +40,7 @@ public class CreditLedger extends BaseEntity {
     private Subscription subscription;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
+    @Column(nullable = false, length = 64)
     private LedgerKind kind;
 
     /**
