@@ -13,6 +13,17 @@ const MAX_VIDEO_BYTES = MAX_VIDEO_MB * 1024 * 1024;
 // person has time to get framed and ready.
 const COUNTDOWN_SECONDS = 5;
 
+// A short, phonetically varied passage to read aloud while recording. ~65
+// words ≈ 25–30s at a natural pace — enough audio for a good voice clone
+// without dragging on.
+const RECORDING_SCRIPT =
+  "Hi! I'm recording this so my AI twin can learn how I look and sound. " +
+  "I enjoy sharing ideas and breaking big topics down into simple, clear steps. " +
+  "Today is a bright new day, full of questions worth exploring. " +
+  "From science and history to art and everyday curiosity, there's always " +
+  "something fascinating to discover. Thanks for listening — let's learn " +
+  "something amazing together.";
+
 export function TutorTwinsPage() {
   const [twins, setTwins] = useState<TwinDTO[]>([]);
   const [lessons, setLessons] = useState<LessonDTO[]>([]);
@@ -284,9 +295,9 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
     <div style={card}>
       <h3 style={{ marginTop: 0 }}>Create a twin</h3>
       <p style={{ color: "#888", marginTop: 0 }}>
-        Record a clip of yourself speaking for ~30 seconds — we capture your likeness as a
-        talking avatar and clone your voice from the audio. A well-lit, front-facing shot in a
-        quiet room works best. You can also upload a photo and add a separate voice recording
+        Record yourself reading the short script below (~30 seconds) — we capture your likeness
+        as a talking avatar and clone your voice from the audio. A well-lit, front-facing shot in
+        a quiet room works best. You can also upload a photo and add a separate voice recording
         below; a photo with no voice uses a preset voice.
       </p>
 
@@ -296,6 +307,25 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
+
+      {/* Before recording, show the script as a plain box. Once the countdown
+          starts it moves onto the camera preview (teleprompter overlay below). */}
+      {!recording && !counting && (
+        <div
+          style={{
+            marginTop: 12,
+            background: "#0f1115",
+            border: "1px solid #2a2d33",
+            borderRadius: 8,
+            padding: 14,
+          }}
+        >
+          <div style={{ fontSize: 12, color: "#888", fontWeight: 600, marginBottom: 6 }}>
+            Read this aloud (~30 seconds)
+          </div>
+          <p style={{ margin: 0, color: "#e6e6e6", fontSize: 16, lineHeight: 1.6 }}>{RECORDING_SCRIPT}</p>
+        </div>
+      )}
 
       <div style={{ position: "relative", marginTop: 12, background: "#0f1115", borderRadius: 8, overflow: "hidden" }}>
         {/* Live camera (during the countdown and while recording) uses the <video> ref. */}
@@ -349,10 +379,36 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
               padding: "4px 10px",
               fontSize: 12,
               fontWeight: 600,
+              zIndex: 2,
             }}
           >
             <span style={{ width: 8, height: 8, borderRadius: 999, background: "#ef4444", display: "inline-block" }} />
             REC
+          </div>
+        )}
+
+        {/* Teleprompter overlay on the camera preview — read this while looking
+            at the lens. Sits over the lower part of the video so your eyeline
+            stays near the camera. */}
+        {(recording || counting) && (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              maxHeight: "60%",
+              overflowY: "auto",
+              zIndex: 3,
+              padding: "28px 18px 16px",
+              background: "linear-gradient(to top, rgba(0,0,0,0.88) 30%, rgba(0,0,0,0))",
+              color: "#fff",
+              fontSize: 18,
+              lineHeight: 1.6,
+              textAlign: "center",
+            }}
+          >
+            {RECORDING_SCRIPT}
           </div>
         )}
       </div>
