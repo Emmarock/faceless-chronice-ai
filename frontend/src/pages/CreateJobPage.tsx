@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { generateJob } from "../api/jobs";
 import type { VideoFormat } from "../types/api";
 import { useBilling } from "../context/BillingContext";
+import { Button, Card, Field, OptionCard, PageHeader, Stepper, inputStyle } from "../components/ui";
 import {
   activatePlan,
   getEnterpriseContactEmail,
@@ -38,9 +39,12 @@ const VIDEO_CREDIT_COST = 300;
 // covers the selected format's job cost.
 const PLAN_ORDER: PlanCode[] = ["FREE", "CREATOR", "PRO", "UNLIMITED", "ENTERPRISE"];
 
+const STEPS = ["Topic", "Format", "Review"];
+
 export function CreateJobPage() {
   const navigate = useNavigate();
   const { billing, refresh: refreshBilling } = useBilling();
+  const [step, setStep] = useState(0);
   const [question, setQuestion] = useState("");
   const [style, setStyle] = useState(STYLE_OPTIONS[0]);
   const [videoFormat, setVideoFormat] = useState<VideoFormat>("REELS");
@@ -58,17 +62,15 @@ export function CreateJobPage() {
   const isReels = videoFormat === "REELS";
   const durationMin = isReels ? 5 : VIDEO_MIN_SECONDS;
   const durationMax = isReels ? REELS_MAX_SECONDS : VIDEO_MAX_SECONDS;
-  // Long-form Video is a paid feature. Free users get the button rendered
-  // in a locked state so the gate is visible up front, not surprise-rejected
-  // on submit. The backend enforces the same rule regardless of UI state.
+  // Long-form Video is a paid feature. Free users get the option rendered in a
+  // locked state so the gate is visible up front, not surprise-rejected on
+  // submit. The backend enforces the same rule regardless of UI state.
   const isFreePlan = billing?.planCode === "FREE";
   const videoLocked = isFreePlan;
   const formatCost = isReels ? REELS_CREDIT_COST : VIDEO_CREDIT_COST;
-  // Pre-warn when balance is below the configured job cost so the user sees
-  // the upgrade prompt before clicking Generate. We still rely on the 402
-  // path below as the authoritative gate in case the backend cost changes.
   const balance = billing?.creditBalance ?? null;
   const balanceBelowCost = balance !== null && balance < formatCost;
+  const clampedDuration = Math.min(durationMax, Math.max(durationMin, durationSeconds));
 
   useEffect(() => {
     let cancelled = false;
@@ -90,8 +92,6 @@ export function CreateJobPage() {
     };
   }, []);
 
-  // Plans the user can upgrade to from their current tier. Used by the
-  // inline plan picker that surfaces after a 402 InsufficientCredits.
   const upgradeOptions = useMemo<PlanDTO[]>(() => {
     if (!billing || plans.length === 0) return [];
     const currentIdx = PLAN_ORDER.indexOf(billing.planCode);
@@ -118,12 +118,10 @@ export function CreateJobPage() {
     try {
       if (paymentsRequired) {
         const url = await startCheckout(plan.code);
-        // Full navigation (not router) so Stripe's hosted page loads cleanly.
         window.location.href = url;
       } else {
         await activatePlan(plan.code);
         await refreshBilling();
-        // Plan activated in-place — clear the banner and let the user retry.
         setOutOfCredits(false);
         setError(null);
         setBusyPlan(null);
@@ -134,9 +132,6 @@ export function CreateJobPage() {
     }
   };
 
-  // Cheapest plan above the user's current tier whose monthly credit grant
-  // can cover the selected format's cost. Falls back to ENTERPRISE when
-  // every paid tier still wouldn't be enough.
   const nextPlan = useMemo<PlanDTO | null>(() => {
     if (!billing || plans.length === 0) return null;
     const currentIdx = PLAN_ORDER.indexOf(billing.planCode);
@@ -158,15 +153,11 @@ export function CreateJobPage() {
       return;
     }
     setVideoFormat(next);
-    // Snap duration into the new format's window so the input doesn't show a
-    // value the backend would reject.
     setDurationSeconds(next === "REELS" ? REELS_DEFAULT_SECONDS : VIDEO_DEFAULT_SECONDS);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!question.trim()) return;
-    const clamped = Math.min(durationMax, Math.max(durationMin, durationSeconds));
     setSubmitting(true);
     setError(null);
     setOutOfCredits(false);
@@ -174,19 +165,15 @@ export function CreateJobPage() {
       const result = await generateJob({
         question: question.trim(),
         style,
-        durationSeconds: clamped,
+        durationSeconds: clampedDuration,
         videoFormat,
       });
-      // Backend debited credits on success — refresh the chip without waiting
-      // for the next polling tick.
       refreshBilling();
       navigate(`/jobs/${result.jobId}`, { state: { jobFile: result } });
     } catch (err) {
       if (isPaymentRequired(err)) {
         setOutOfCredits(true);
         setError(extractError(err) || "You're out of credits.");
-        // Balance is unchanged on 402 (we throw before debiting), but refresh
-        // anyway so the chip is authoritative.
         refreshBilling();
       } else {
         setError(extractError(err));
@@ -202,117 +189,171 @@ export function CreateJobPage() {
     return status === 402;
   }
 
+  const canContinue = step !== 0 || question.trim().length > 0;
+
   return (
-    <div style={{ maxWidth: 640, width: "100%" }}>
-      <h2>Create a new content</h2>
-      <p style={{ color: "#aaa", marginBottom: 24 }}>
-        Generate a video script and kick off the production pipeline.
-      </p>
+    <div style={{ maxWidth: 680, width: "100%" }}>
+      <PageHeader
+        title="Create a video"
+        subtitle="Type a topic — we write the script, generate visuals and voice, and render it for you."
+      />
+      <Stepper steps={STEPS} current={step} />
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
-        <Field label="Question / Topic">
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g. What are the strangest unsolved mysteries of the deep ocean?"
-            rows={4}
-            style={input}
-            required
-          />
-        </Field>
+      {step === 0 && (
+        <Card>
+          <h3 style={stepHeading}>What's your video about?</h3>
+          <p style={stepSub}>Describe the topic or ask a question — the more specific, the sharper the script.</p>
+          <div style={{ display: "grid", gap: 16, marginTop: 18 }}>
+            <Field label="Topic or question">
+              <textarea
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="e.g. What are the strangest unsolved mysteries of the deep ocean?"
+                rows={4}
+                style={{ ...inputStyle, resize: "vertical" }}
+                autoFocus
+              />
+            </Field>
+            <Field label="Style">
+              <select value={style} onChange={(e) => setStyle(e.target.value)} style={inputStyle}>
+                {STYLE_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </Card>
+      )}
 
-        <Field label="Style">
-          <select value={style} onChange={(e) => setStyle(e.target.value)} style={input}>
-            {STYLE_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Format">
-          <div style={{ display: "flex", gap: 8 }} role="group" aria-label="Video format">
-            <FormatButton
-                active={videoFormat === "REELS"}
-                onClick={() => handleFormatChange("REELS")}
-                title="Single-scene short video, ≤30s — for Shorts / Reels / TikTok"
-                label="Reels"
-                sub="≤30s, 1 scene"
+      {step === 1 && (
+        <Card>
+          <h3 style={stepHeading}>Pick a format</h3>
+          <p style={stepSub}>Short vertical clips for Reels/Shorts/TikTok, or long-form for YouTube.</p>
+          <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
+            <OptionCard
+              active={isReels}
+              onClick={() => handleFormatChange("REELS")}
+              icon="📱"
+              title="Reels"
+              badge="≤30s · 1 scene"
+              desc="Single-scene short video for Shorts, Reels and TikTok."
             />
-            <FormatButton
+            <OptionCard
               active={videoFormat === "VIDEO"}
               onClick={() => handleFormatChange("VIDEO")}
-              title={videoLocked
-                ? "Long-form video is a paid feature — click to upgrade"
-                : "Multi-scene, multi-minute long-form video"}
-              label="Video"
-              sub={videoLocked ? "Upgrade to unlock" : "long-form, multi-scene"}
+              icon="🎬"
+              title="Video"
               locked={videoLocked}
+              badge={videoLocked ? "Upgrade" : "long-form"}
+              desc={videoLocked ? "Multi-scene long-form — upgrade to unlock." : "Multi-scene, multi-minute long-form video."}
             />
           </div>
-        </Field>
+          <div style={{ marginTop: 18 }}>
+            <Field label={`Duration — ${durationMin}–${durationMax}s`}>
+              <input
+                type="number"
+                min={durationMin}
+                max={durationMax}
+                value={durationSeconds}
+                onChange={(e) => setDurationSeconds(Number(e.target.value))}
+                style={{ ...inputStyle, maxWidth: 200 }}
+              />
+            </Field>
+          </div>
+        </Card>
+      )}
 
-        <Field label={`Duration (seconds) — max ${durationMax}`}>
-          <input
-            type="number"
-            min={durationMin}
-            max={durationMax}
-            value={durationSeconds}
-            onChange={(e) => setDurationSeconds(Number(e.target.value))}
-            style={input}
-          />
-        </Field>
+      {step === 2 && (
+        <Card>
+          <h3 style={stepHeading}>Review &amp; generate</h3>
+          <div style={{ display: "grid", gap: 1, marginTop: 14, borderRadius: 8, overflow: "hidden", border: "1px solid var(--border-strong)" }}>
+            <SummaryRow label="Topic" value={question.trim() || "—"} />
+            <SummaryRow label="Style" value={style} />
+            <SummaryRow label="Format" value={isReels ? "Reels (≤30s)" : "Video (long-form)"} />
+            <SummaryRow label="Duration" value={`${clampedDuration}s`} />
+            <SummaryRow
+              label="Cost"
+              value={`${formatCost} credits${balance != null ? ` · ${balance.toLocaleString()} available` : ""}`}
+            />
+          </div>
 
-        {outOfCredits ? (
-          <InlinePlanPicker
-            title="You're out of credits"
-            message={error ?? "Upgrade your plan to keep generating content."}
-            plans={upgradeOptions}
-            paymentsRequired={paymentsRequired}
-            busyPlan={busyPlan}
-            upgradeError={upgradeError}
-            onUpgrade={handleUpgrade}
-          />
-        ) : balanceBelowCost ? (
-          <UpgradeBanner
-            title={`Not enough credits to generate a ${isReels ? "Reel" : "Video"}`}
-            message={`A ${isReels ? "Reel" : "Video"} costs ${formatCost} credits${
-              balance !== null ? ` — you currently have ${balance.toLocaleString()}` : ""
-            }.${
-              nextPlan
-                ? ` Upgrade to ${nextPlan.displayName}${
-                    nextPlan.monthlyCreditGrant != null
-                      ? ` for ${nextPlan.monthlyCreditGrant.toLocaleString()} credits / month`
-                      : ""
-                  }.`
-                : ""
-            }`}
-            cta={nextPlan ? `Upgrade to ${nextPlan.displayName}` : "Upgrade plan"}
-          />
-        ) : error ? (
-          <div style={{ color: "#ff6b6b" }}>{error}</div>
-        ) : null}
+          <div style={pipelineNote}>
+            After you generate, we'll <strong style={{ color: "var(--text)" }}>write the script → generate visuals → voice it → render the video</strong>. You can watch each step on the next screen.
+          </div>
 
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button
-            type="submit"
+          {outOfCredits ? (
+            <div style={{ marginTop: 14 }}>
+              <InlinePlanPicker
+                title="You're out of credits"
+                message={error ?? "Upgrade your plan to keep generating content."}
+                plans={upgradeOptions}
+                paymentsRequired={paymentsRequired}
+                busyPlan={busyPlan}
+                upgradeError={upgradeError}
+                onUpgrade={handleUpgrade}
+              />
+            </div>
+          ) : balanceBelowCost ? (
+            <div style={{ marginTop: 14 }}>
+              <UpgradeBanner
+                title={`Not enough credits to generate a ${isReels ? "Reel" : "Video"}`}
+                message={`A ${isReels ? "Reel" : "Video"} costs ${formatCost} credits${
+                  balance !== null ? ` — you currently have ${balance.toLocaleString()}` : ""
+                }.${
+                  nextPlan
+                    ? ` Upgrade to ${nextPlan.displayName}${
+                        nextPlan.monthlyCreditGrant != null
+                          ? ` for ${nextPlan.monthlyCreditGrant.toLocaleString()} credits / month`
+                          : ""
+                      }.`
+                    : ""
+                }`}
+                cta={nextPlan ? `Upgrade to ${nextPlan.displayName}` : "Upgrade plan"}
+              />
+            </div>
+          ) : error ? (
+            <div style={{ marginTop: 14, color: "var(--danger)" }}>{error}</div>
+          ) : null}
+        </Card>
+      )}
+
+      {/* Wizard navigation */}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 20, flexWrap: "wrap" }}>
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={() => (step === 0 ? navigate("/") : setStep(step - 1))}
+          disabled={submitting}
+        >
+          {step === 0 ? "Cancel" : "← Back"}
+        </Button>
+        {step < STEPS.length - 1 ? (
+          <Button type="button" onClick={() => setStep(step + 1)} disabled={!canContinue}>
+            Continue →
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={handleSubmit}
             disabled={submitting || balanceBelowCost}
-            style={{ ...btnPrimary, opacity: balanceBelowCost ? 0.6 : 1, cursor: balanceBelowCost ? "not-allowed" : "pointer" }}
+            style={{ opacity: balanceBelowCost ? 0.6 : 1, cursor: balanceBelowCost ? "not-allowed" : "pointer" }}
             title={balanceBelowCost ? "Upgrade your plan to generate this content" : undefined}
           >
-            {submitting ? "Generating..." : "Generate Content"}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            disabled={submitting}
-            style={btnSecondary}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
+            {submitting ? "Generating…" : "✨ Generate video"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: "flex", gap: 16, padding: "11px 14px", background: "var(--surface-2)", alignItems: "baseline" }}>
+      <span style={{ width: 90, flexShrink: 0, color: "var(--text-dim)", fontSize: 13 }}>{label}</span>
+      <span style={{ color: "var(--text)", fontSize: 14, overflow: "hidden", textOverflow: "ellipsis" }}>{value}</span>
     </div>
   );
 }
@@ -503,64 +544,6 @@ function UpgradeBanner({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <span style={{ fontSize: 13, color: "#aaa" }}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function FormatButton({
-  active,
-  onClick,
-  label,
-  sub,
-  title,
-  locked = false,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  sub: string;
-  title: string;
-  /** Renders the button in a "paid feature" state. Click still fires so the
-   *  parent can route to /pricing — we don't disable, we redirect. */
-  locked?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      style={{
-        flex: 1,
-        background: active ? "#1d4ed8" : locked ? "#181a1f" : "transparent",
-        color: active ? "#fff" : locked ? "#7a8db3" : "#cbd5e1",
-        border: "1px solid " + (active ? "#3b82f6" : locked ? "#2a2d33" : "#2a2d33"),
-        borderRadius: 6,
-        padding: "10px 12px",
-        cursor: active ? "default" : "pointer",
-        fontWeight: 600,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "flex-start",
-        gap: 2,
-        position: "relative",
-      }}
-    >
-      <span style={{ fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>
-        {locked && <span aria-hidden style={{ fontSize: 12 }}>🔒</span>}
-        {label}
-      </span>
-      <span style={{ fontSize: 11, color: active ? "#d6e3ff" : locked ? "#fbbf24" : "#7a8db3", fontWeight: 400 }}>
-        {sub}
-      </span>
-    </button>
-  );
-}
-
 function extractError(err: unknown): string {
   if (typeof err === "object" && err !== null && "response" in err) {
     const r = (err as { response?: { data?: { message?: string } } }).response;
@@ -569,32 +552,15 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-const input: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "10px 12px",
-  color: "#e6e6e6",
-  fontFamily: "inherit",
-  fontSize: 16,
-  width: "100%",
-};
-
-const btnPrimary: React.CSSProperties = {
-  background: "#3b82f6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "10px 16px",
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const btnSecondary: React.CSSProperties = {
-  background: "transparent",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "10px 16px",
-  cursor: "pointer",
+const stepHeading: React.CSSProperties = { margin: 0, fontSize: 18 };
+const stepSub: React.CSSProperties = { color: "var(--text-muted)", margin: "6px 0 0", fontSize: 14 };
+const pipelineNote: React.CSSProperties = {
+  marginTop: 16,
+  padding: "12px 14px",
+  background: "var(--surface-2)",
+  border: "1px solid var(--border-strong)",
+  borderRadius: 8,
+  fontSize: 13,
+  color: "var(--text-muted)",
+  lineHeight: 1.6,
 };
