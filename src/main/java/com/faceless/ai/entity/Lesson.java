@@ -56,6 +56,15 @@ public class Lesson extends BaseEntity {
     @Column(name = "video_url", length = 1024)
     private String videoUrl;
 
+    /**
+     * The {@link Video} row registered for this lesson once it completes, so it
+     * can ride the existing cross-posting publish path (jobId is null on that
+     * Video — it's a lesson render, not a documentary job). Null until the
+     * lesson finishes rendering.
+     */
+    @Column(name = "video_id")
+    private UUID videoId;
+
     @Column(name = "duration_seconds")
     private Integer durationSeconds;
 

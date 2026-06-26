@@ -225,6 +225,7 @@ export interface LessonDTO {
   scriptContent?: string | null;
   durationSeconds?: number | null;
   hasVideo: boolean;
+  videoId?: string | null;
   errorMessage?: string | null;
   createdOn: string;
 }

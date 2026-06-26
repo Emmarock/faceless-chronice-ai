@@ -52,16 +52,19 @@ export function Layout() {
           {!navGated && (
             <>
               <NavLink to="/" end className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-                Contents
+                Home
               </NavLink>
               <NavLink to="/jobs/new" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 Create
               </NavLink>
-              <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
-                Videos
-              </NavLink>
               <NavLink to="/tutor" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 AI Tutor
+              </NavLink>
+              <NavLink to="/contents" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                My Content
+              </NavLink>
+              <NavLink to="/videos" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
+                Videos
               </NavLink>
               <NavLink to="/assets" className={({ isActive }) => (isActive ? "active" : undefined)} onClick={closeMenu}>
                 Assets

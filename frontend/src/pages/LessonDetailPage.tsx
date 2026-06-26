@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getLesson, lessonStreamUrl } from "../api/tutor";
+import { listConnections } from "../api/social";
+import { publishVideo } from "../api/videos";
 import { ProgressBar } from "../components/ProgressBar";
-import type { LessonDTO } from "../types/api";
+import { PublishModal } from "../components/PublishModal";
+import type { LessonDTO, SocialConnectionDTO, VideoPublishRequest } from "../types/api";
 
 /** Coarse percent for the bar — lessons don't report granular progress. */
 const PERCENT: Record<string, number> = {
@@ -15,7 +18,13 @@ const PERCENT: Record<string, number> = {
 export function LessonDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [lesson, setLesson] = useState<LessonDTO | null>(null);
+  const [connections, setConnections] = useState<SocialConnectionDTO[]>([]);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    listConnections().then(setConnections).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -70,13 +79,41 @@ export function LessonDetailPage() {
           )}
 
           {lesson.status === "COMPLETED" && lesson.hasVideo && (
-            <video
-              key={lesson.id}
-              src={lessonStreamUrl(lesson.id)}
-              controls
-              playsInline
-              style={{ width: "100%", borderRadius: 10, marginTop: 12, background: "#000" }}
-            />
+            <>
+              <video
+                key={lesson.id}
+                src={lessonStreamUrl(lesson.id)}
+                controls
+                playsInline
+                style={{ width: "100%", borderRadius: 10, marginTop: 12, background: "#000" }}
+              />
+              <div style={{ marginTop: 12 }}>
+                <button
+                  style={uploadBtn}
+                  disabled={!lesson.videoId}
+                  title={lesson.videoId ? "Upload to connected social accounts" : "Preparing for upload…"}
+                  onClick={() => setPublishOpen(true)}
+                >
+                  ⬆ Upload to social
+                </button>
+              </div>
+
+              {lesson.videoId && (
+                <PublishModal
+                  open={publishOpen}
+                  title={lesson.topic}
+                  defaultTitle={lesson.topic}
+                  defaultDescription={lesson.scriptContent ?? ""}
+                  connections={connections}
+                  videoFormat={null}
+                  onClose={() => setPublishOpen(false)}
+                  onSubmit={async (request: VideoPublishRequest) => {
+                    const response = await publishVideo(lesson.videoId as string, request);
+                    return response.results;
+                  }}
+                />
+              )}
+            </>
           )}
 
           {lesson.scriptContent && (
@@ -104,4 +141,15 @@ const card: React.CSSProperties = {
   border: "1px solid #2a2d33",
   borderRadius: 10,
   padding: 16,
+};
+
+const uploadBtn: React.CSSProperties = {
+  background: "#3b5bdb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  padding: "10px 16px",
+  cursor: "pointer",
+  fontSize: 14,
+  fontWeight: 600,
 };

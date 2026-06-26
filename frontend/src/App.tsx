@@ -20,6 +20,7 @@ import { TermsOfServicePage } from "./pages/TermsOfServicePage";
 import { DataDeletionPage } from "./pages/DataDeletionPage";
 import { PricingPage } from "./pages/PricingPage";
 import { BillingPage } from "./pages/BillingPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { TutorTwinsPage } from "./pages/TutorTwinsPage";
 import { CreateLessonPage } from "./pages/CreateLessonPage";
 import { LessonDetailPage } from "./pages/LessonDetailPage";
@@ -53,7 +54,8 @@ export function App() {
                 {/* Gated routes: redirect to /pricing until the user has
                     picked a plan (paid or "Continue with Free"). */}
                 <Route element={<RequirePlanSelected />}>
-                  <Route index element={<JobsListPage />} />
+                  <Route index element={<DashboardPage />} />
+                  <Route path="contents" element={<JobsListPage />} />
                   <Route path="jobs/new" element={<CreateJobPage />} />
                   <Route path="jobs/:jobId" element={<JobDetailPage />} />
                   <Route path="videos" element={<VideosListPage />} />
