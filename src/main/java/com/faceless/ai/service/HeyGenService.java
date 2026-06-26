@@ -14,6 +14,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -125,32 +126,50 @@ public class HeyGenService {
         JsonNode asset = unwrap(http.send(upload, HttpResponse.BodyHandlers.ofString()), "audio asset upload");
         String audioAssetId = firstNonBlank(asset.path("asset_id").asText(null), asset.path("id").asText(null));
         String audioUrl = asset.path("url").asText(null);
+        log.info("Audio asset uploaded for voice clone (asset_id={}, url={})", audioAssetId, audioUrl != null);
 
-        // 2) Request the clone. HeyGen's v3 clone endpoint requires a field
-        //    named "audio" (per its invalid_parameter error). We pass the
-        //    uploaded asset reference there — asset id preferred, else the url.
-        // The v3 clone endpoint wants "audio" as an OBJECT (its error: "Input
-        // should be a valid dictionary or object"), holding the uploaded audio
-        // reference. HeyGen's audio-input model fields are audio_asset_id /
-        // audio_url — provide whichever the asset upload returned.
-        Map<String, Object> audio = new HashMap<>();
-        if (audioAssetId != null) audio.put("audio_asset_id", audioAssetId);
-        else if (audioUrl != null) audio.put("audio_url", audioUrl);
-        else throw new ExternalApiException("Audio upload returned neither an asset id nor a url: " + asset);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("name", name);
-        body.put("audio", audio);
-
-        JsonNode data = post(baseUrl + "/v3/voices/clone", body);
-        String voiceId = firstNonBlank(
-                data.path("voice_id").asText(null),
-                data.path("id").asText(null),
-                data.path("voice").path("voice_id").asText(null));
-        if (voiceId == null) {
-            throw new ExternalApiException("HeyGen voice clone returned no voice_id: " + data);
+        // 2) Request the clone. The v3 clone endpoint wants "audio" as an
+        //    OBJECT, but its exact inner field name isn't in the public spec.
+        //    Try the documented variants in order until one is accepted — a
+        //    validation rejection (400) creates nothing and doesn't consume
+        //    clone quota, so this is safe. Each rejection is logged so the real
+        //    HeyGen error surfaces if none work.
+        List<Map<String, Object>> audioShapes = new ArrayList<>();
+        if (audioAssetId != null) {
+            audioShapes.add(Map.of("audio_asset_id", audioAssetId));
+            audioShapes.add(Map.of("asset_id", audioAssetId));
         }
-        return voiceId;
+        if (audioUrl != null) {
+            audioShapes.add(Map.of("audio_url", audioUrl));
+            audioShapes.add(Map.of("url", audioUrl));
+        }
+        if (audioShapes.isEmpty()) {
+            throw new ExternalApiException("Audio upload returned neither an asset id nor a url: " + asset);
+        }
+
+        ExternalApiException last = null;
+        for (Map<String, Object> audio : audioShapes) {
+            Map<String, Object> body = new HashMap<>();
+            body.put("name", name);
+            body.put("audio", audio);
+            try {
+                JsonNode data = post(baseUrl + "/v3/voices/clone", body);
+                String voiceId = firstNonBlank(
+                        data.path("voice_id").asText(null),
+                        data.path("id").asText(null),
+                        data.path("voice").path("voice_id").asText(null));
+                if (voiceId != null) {
+                    log.info("Voice cloned (voice_id={}) using audio shape {}", voiceId, audio.keySet());
+                    return voiceId;
+                }
+                last = new ExternalApiException(
+                        "HeyGen voice clone returned no voice_id for audio " + audio.keySet() + ": " + data);
+            } catch (ExternalApiException e) {
+                last = e;
+                log.warn("Voice clone attempt with audio {} rejected: {}", audio.keySet(), e.getMessage());
+            }
+        }
+        throw last != null ? last : new ExternalApiException("Voice clone failed for all audio shapes.");
     }
 
     // ------------------------------------------------------------------ //
