@@ -13,6 +13,17 @@ const MAX_VIDEO_BYTES = MAX_VIDEO_MB * 1024 * 1024;
 // person has time to get framed and ready.
 const COUNTDOWN_SECONDS = 5;
 
+// A short, phonetically varied passage to read aloud while recording. ~65
+// words ≈ 25–30s at a natural pace — enough audio for a good voice clone
+// without dragging on.
+const RECORDING_SCRIPT =
+  "Hi! I'm recording this so my AI twin can learn how I look and sound. " +
+  "I enjoy sharing ideas and breaking big topics down into simple, clear steps. " +
+  "Today is a bright new day, full of questions worth exploring. " +
+  "From science and history to art and everyday curiosity, there's always " +
+  "something fascinating to discover. Thanks for listening — let's learn " +
+  "something amazing together.";
+
 export function TutorTwinsPage() {
   const [twins, setTwins] = useState<TwinDTO[]>([]);
   const [lessons, setLessons] = useState<LessonDTO[]>([]);
@@ -284,9 +295,9 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
     <div style={card}>
       <h3 style={{ marginTop: 0 }}>Create a twin</h3>
       <p style={{ color: "#888", marginTop: 0 }}>
-        Record a clip of yourself speaking for ~30 seconds — we capture your likeness as a
-        talking avatar and clone your voice from the audio. A well-lit, front-facing shot in a
-        quiet room works best. You can also upload a photo and add a separate voice recording
+        Record yourself reading the short script below (~30 seconds) — we capture your likeness
+        as a talking avatar and clone your voice from the audio. A well-lit, front-facing shot in
+        a quiet room works best. You can also upload a photo and add a separate voice recording
         below; a photo with no voice uses a preset voice.
       </p>
 
@@ -296,6 +307,24 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
+
+      {/* Teleprompter: words to read aloud while recording. Highlighted once
+          the countdown starts so it reads as the active script. */}
+      <div
+        style={{
+          marginTop: 12,
+          background: "#0f1115",
+          border: `1px solid ${recording || counting ? "#3b5bdb" : "#2a2d33"}`,
+          borderRadius: 8,
+          padding: 14,
+          transition: "border-color 0.2s",
+        }}
+      >
+        <div style={{ fontSize: 12, color: recording ? "#7c93ff" : "#888", fontWeight: 600, marginBottom: 6 }}>
+          {recording ? "● Recording — read this aloud" : "Read this aloud (~30 seconds)"}
+        </div>
+        <p style={{ margin: 0, color: "#e6e6e6", fontSize: 16, lineHeight: 1.6 }}>{RECORDING_SCRIPT}</p>
+      </div>
 
       <div style={{ position: "relative", marginTop: 12, background: "#0f1115", borderRadius: 8, overflow: "hidden" }}>
         {/* Live camera (during the countdown and while recording) uses the <video> ref. */}
