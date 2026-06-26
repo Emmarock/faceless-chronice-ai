@@ -59,8 +59,24 @@ public class SocialUploadConsumer {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Takes the raw String payload and deserializes it ourselves rather than
+     * letting the framework bind a {@link SocialUploadEvent} parameter. Binding
+     * fails during argument resolution (before the method body) on a malformed
+     * or legacy payload — e.g. a bare UUID — which leaves the message un-acked
+     * and SQS redelivers it forever as a poison message. Parsing here lets us
+     * log and ACK-drop bad messages so the queue drains instead of looping.
+     */
     @SqsListener(value = "${chronicleai.queue.social-upload}", messageVisibilitySeconds = "900")
-    public void consume(SocialUploadEvent event) {
+    public void consume(String payload) {
+        SocialUploadEvent event;
+        try {
+            event = objectMapper.readValue(payload, SocialUploadEvent.class);
+        } catch (Exception e) {
+            // Returning normally ACKs the message so it stops redelivering.
+            log.warn("Dropping unparseable social-upload message: {} — payload: {}", e.getMessage(), payload);
+            return;
+        }
         UUID assetId = event.assetId();
         if (assetId != null) {
             uploadAsset(assetId, event.platforms());
