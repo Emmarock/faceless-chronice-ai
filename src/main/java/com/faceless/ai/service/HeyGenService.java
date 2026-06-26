@@ -64,67 +64,84 @@ public class HeyGenService {
     }
 
     // ------------------------------------------------------------------ //
-    //  Avatar onboarding
+    //  Avatar onboarding (Talking Photo)
     // ------------------------------------------------------------------ //
 
     /**
-     * Uploads the user's source clip to HeyGen and kicks off instant-avatar
-     * training (avatar + voice clone). Returns the HeyGen-side training handle
-     * to poll via {@link #getAvatarStatus}.
+     * Uploads a still image and returns its {@code talking_photo_id} — an
+     * immediately-usable "talking photo" avatar. There is no async training:
+     * the returned id can be rendered straight away via
+     * {@link #generateLessonVideo}.
+     *
+     * <p>This is the avatar path available on standard HeyGen API plans. The
+     * video-based avatar + voice-clone product (HeyGen "Digital Twin" /
+     * Video Avatar API) is Enterprise-only and requires consent footage at
+     * public URLs with multi-hour training, so it is intentionally not used
+     * here. The caller extracts a frame from the user's clip and passes the
+     * image in. Voice is supplied separately (the configured default voice),
+     * since this path does not clone the speaker's voice.
      */
-    public String submitAvatarTraining(Path sourceVideo, String name) throws Exception {
+    public String uploadTalkingPhoto(Path image) throws Exception {
         requireConfigured();
-        String assetUrl = uploadAsset(sourceVideo);
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("name", name);
-        body.put("video_url", assetUrl);
-
-        JsonNode data = post(baseUrl + "/v2/avatar/train", body);
-        String trainingId = firstNonBlank(data.path("train_id").asText(null),
-                data.path("id").asText(null));
-        if (trainingId == null) {
-            throw new ExternalApiException("HeyGen avatar training returned no id: " + data);
-        }
-        return trainingId;
-    }
-
-    /**
-     * Polls a training job. Returns the current {@link AvatarStatus}; when
-     * {@code ready} is true, {@code avatarId} (and {@code voiceId} when the
-     * plan supports cloning) are populated.
-     */
-    public AvatarStatus getAvatarStatus(String trainingId) throws Exception {
-        requireConfigured();
-        JsonNode data = get(baseUrl + "/v2/avatar/train/status?train_id=" + enc(trainingId));
-        String status = data.path("status").asText("");
-        String avatarId = firstNonBlank(data.path("avatar_id").asText(null),
-                data.path("talking_photo_id").asText(null));
-        String voiceId = data.path("voice_id").asText(null);
-        return new AvatarStatus(status, avatarId, voiceId);
-    }
-
-    /**
-     * Uploads a local file to HeyGen's asset endpoint and returns its hosted
-     * URL. Content-Type is inferred from the file extension (HeyGen requires a
-     * concrete media type, not octet-stream).
-     */
-    public String uploadAsset(Path file) throws Exception {
-        requireConfigured();
-        byte[] bytes = Files.readAllBytes(file);
+        byte[] bytes = Files.readAllBytes(image);
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(uploadUrl + "/v1/asset"))
+                .uri(URI.create(uploadUrl + "/v1/talking_photo"))
                 .header("x-api-key", apiKey)
-                .header("Content-Type", contentTypeFor(file))
+                .header("Content-Type", contentTypeFor(image))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(bytes))
                 .build();
-        HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-        JsonNode data = unwrap(response, "asset upload");
-        String url = firstNonBlank(data.path("url").asText(null), data.path("id").asText(null));
-        if (url == null) {
-            throw new ExternalApiException("HeyGen asset upload returned no url: " + response.body());
+        JsonNode data = unwrap(http.send(request, HttpResponse.BodyHandlers.ofString()), "talking photo upload");
+        String id = firstNonBlank(data.path("talking_photo_id").asText(null), data.path("id").asText(null));
+        if (id == null) {
+            throw new ExternalApiException("HeyGen talking photo upload returned no id: " + data);
         }
-        return url;
+        return id;
+    }
+
+    /**
+     * Clones the speaker's voice from an audio sample (HeyGen Instant Voice
+     * Clone, {@code POST /v3/voices/clone}; Creator plan and above). Uploads
+     * the audio via the asset endpoint, then requests the clone, returning the
+     * resulting {@code voice_id} for use in {@link #generateLessonVideo}.
+     *
+     * <p>~30s of clear speech is enough for an instant clone. NOTE: the v3
+     * clone request/response field names are not in the public OpenAPI spec
+     * (they live in the authenticated dashboard reference). The body keys and
+     * response paths below are best-effort and isolated here — if HeyGen names
+     * them differently, this is the one method to adjust. Callers treat a
+     * failure as non-fatal and fall back to the default voice.
+     */
+    public String cloneVoice(Path audioFile, String name) throws Exception {
+        requireConfigured();
+
+        // 1) Upload the audio sample → asset id / url.
+        byte[] bytes = Files.readAllBytes(audioFile);
+        HttpRequest upload = HttpRequest.newBuilder()
+                .uri(URI.create(uploadUrl + "/v1/asset"))
+                .header("x-api-key", apiKey)
+                .header("Content-Type", contentTypeFor(audioFile))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(bytes))
+                .build();
+        JsonNode asset = unwrap(http.send(upload, HttpResponse.BodyHandlers.ofString()), "audio asset upload");
+        String audioAssetId = firstNonBlank(asset.path("asset_id").asText(null), asset.path("id").asText(null));
+        String audioUrl = asset.path("url").asText(null);
+
+        // 2) Request the clone.
+        Map<String, Object> body = new HashMap<>();
+        body.put("name", name);
+        if (audioAssetId != null) body.put("audio_asset_id", audioAssetId);
+        else if (audioUrl != null) body.put("audio_url", audioUrl);
+        else throw new ExternalApiException("Audio upload returned neither an asset id nor a url: " + asset);
+
+        JsonNode data = post(baseUrl + "/v3/voices/clone", body);
+        String voiceId = firstNonBlank(
+                data.path("voice_id").asText(null),
+                data.path("id").asText(null),
+                data.path("voice").path("voice_id").asText(null));
+        if (voiceId == null) {
+            throw new ExternalApiException("HeyGen voice clone returned no voice_id: " + data);
+        }
+        return voiceId;
     }
 
     // ------------------------------------------------------------------ //
@@ -132,24 +149,22 @@ public class HeyGenService {
     // ------------------------------------------------------------------ //
 
     /**
-     * Submits a talking-avatar render of {@code scriptText} read in the twin's
-     * likeness/voice. Returns the HeyGen render job id to poll via
-     * {@link #getVideoStatus}. When {@code voiceId} is blank, falls back to the
-     * configured default voice.
+     * Submits a talking-photo render of {@code scriptText}. Returns the HeyGen
+     * render job id to poll via {@link #getVideoStatus}. {@code talkingPhotoId}
+     * is the id from {@link #uploadTalkingPhoto}; when {@code voiceId} is blank
+     * it falls back to the configured default voice.
      */
-    public String generateLessonVideo(String avatarId, String voiceId, String scriptText) throws Exception {
+    public String generateLessonVideo(String talkingPhotoId, String voiceId, String scriptText) throws Exception {
         requireConfigured();
         String voice = firstNonBlank(voiceId, defaultVoiceId);
         if (voice == null) {
             throw new ExternalApiException(
-                    "No HeyGen voice available — set chronicleai.heygen.default-voice-id "
-                            + "or train a twin whose plan supports voice cloning.");
+                    "No HeyGen voice available — set chronicleai.heygen.default-voice-id (HEYGEN_DEFAULT_VOICE_ID).");
         }
 
         Map<String, Object> character = new HashMap<>();
-        character.put("type", "avatar");
-        character.put("avatar_id", avatarId);
-        character.put("avatar_style", "normal");
+        character.put("type", "talking_photo");
+        character.put("talking_photo_id", talkingPhotoId);
 
         Map<String, Object> voicePayload = new HashMap<>();
         voicePayload.put("type", "text");
@@ -242,6 +257,9 @@ public class HeyGenService {
         if (name.endsWith(".webm")) return "video/webm";
         if (name.endsWith(".png"))  return "image/png";
         if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".mp3"))  return "audio/mpeg";
+        if (name.endsWith(".wav"))  return "audio/wav";
+        if (name.endsWith(".m4a"))  return "audio/mp4";
         return "application/octet-stream";
     }
 
@@ -254,12 +272,6 @@ public class HeyGenService {
             if (v != null && !v.isBlank()) return v;
         }
         return null;
-    }
-
-    /** Snapshot of an avatar-training job. */
-    public record AvatarStatus(String status, String avatarId, String voiceId) {
-        public boolean isReady()  { return avatarId != null && !avatarId.isBlank(); }
-        public boolean isFailed() { return "failed".equalsIgnoreCase(status) || "error".equalsIgnoreCase(status); }
     }
 
     /** Snapshot of a render job. */

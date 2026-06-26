@@ -41,7 +41,7 @@ export function CreateLessonPage() {
     <div style={{ maxWidth: 640 }}>
       <h2 style={{ marginBottom: 4 }}>New lesson</h2>
       <p style={{ color: "#888", marginTop: 0 }}>
-        Pick a twin and a topic. We&apos;ll write the lesson with Claude and render your twin
+        Pick a twin and a topic. We&apos;ll write the lesson script and render your twin
         teaching it — this runs in the background and takes a few minutes.
       </p>
 

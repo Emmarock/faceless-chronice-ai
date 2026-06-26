@@ -18,6 +18,7 @@ public record TwinDTO(
         String name,
         Status status,
         boolean ready,
+        boolean voiceCloned,
         String errorMessage,
         Instant createdOn
 ) {
@@ -27,6 +28,7 @@ public record TwinDTO(
                 .name(t.getName())
                 .status(t.getStatus())
                 .ready(t.getStatus() == Status.COMPLETED && t.getHeygenAvatarId() != null)
+                .voiceCloned(t.getHeygenVoiceId() != null && !t.getHeygenVoiceId().isBlank())
                 .errorMessage(t.getErrorMessage())
                 .createdOn(t.getCreatedOn())
                 .build();

@@ -58,43 +58,10 @@ public class TwinLessonPoller {
                initialDelayString = "${chronicleai.heygen.initial-delay-ms:20000}")
     public void poll() {
         if (!heyGenService.isConfigured()) return;
-        advanceTwins();
+        // Twins are created synchronously (talking-photo upload is instant), so
+        // there is nothing to advance for them here — only lesson renders are
+        // asynchronous.
         advanceLessons();
-    }
-
-    // ------------------------------------------------------------------ //
-    //  Twins
-    // ------------------------------------------------------------------ //
-
-    private void advanceTwins() {
-        List<Twin> twins = twinRepository.findByStatusIn(List.of(Status.PROCESSING));
-        for (Twin twin : twins) {
-            try {
-                if (twin.getHeygenTrainingId() == null) continue; // submit happens at creation
-                HeyGenService.AvatarStatus status = heyGenService.getAvatarStatus(twin.getHeygenTrainingId());
-                if (status.isReady()) {
-                    twin.setHeygenAvatarId(status.avatarId());
-                    twin.setHeygenVoiceId(status.voiceId());
-                    twin.setStatus(Status.COMPLETED);
-                    touch(twin);
-                    twinRepository.save(twin);
-                    log.info("Twin {} training complete (avatar={})", twin.getId(), status.avatarId());
-                } else if (status.isFailed()) {
-                    failTwin(twin, "HeyGen training failed: " + status.status());
-                }
-            } catch (Exception e) {
-                log.warn("Twin {} poll error: {}", twin.getId(), e.getMessage());
-            }
-        }
-    }
-
-    private void failTwin(Twin twin, String message) {
-        twin.setStatus(Status.FAILED);
-        twin.setErrorMessage(truncate(message));
-        touch(twin);
-        twinRepository.save(twin);
-        refund(twin.getUserId(), LedgerKind.DEBIT_TWIN_TRAINING, "Refund: twin training failed");
-        log.warn("Twin {} marked FAILED: {}", twin.getId(), message);
     }
 
     // ------------------------------------------------------------------ //

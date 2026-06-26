@@ -64,7 +64,7 @@ export function LessonDetailPage() {
               <p style={{ color: "#888", marginTop: 10, marginBottom: 0 }}>
                 {lesson.status === "FAILED"
                   ? lesson.errorMessage ?? "Lesson generation failed."
-                  : "Writing the script with Claude and rendering your twin — this takes a few minutes. This page updates automatically."}
+                  : "Writing the lesson script and rendering your twin — this takes a few minutes. This page updates automatically."}
               </p>
             </div>
           )}
