@@ -11,6 +11,7 @@ import {
   listConnections,
 } from "../api/social";
 import { makePkcePair, openOAuthPopup, randomString } from "../api/oauthPkce";
+import { card as uiCard, PageHeader } from "../components/ui";
 import type { SocialConnectionDTO, SocialPlatform } from "../types/api";
 
 interface PlatformMeta {
@@ -363,10 +364,10 @@ export function ConnectionsPage() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Social connections</h2>
-      <p style={{ color: "#aaa", marginBottom: 24 }}>
-        Connect accounts so generated videos can be published automatically.
-      </p>
+      <PageHeader
+        title="Connections"
+        subtitle="Connect your social accounts so finished videos can publish automatically — in one click."
+      />
 
       {error && <div style={{ color: "#ff6b6b", marginBottom: 16 }}>{error}</div>}
 
@@ -557,12 +558,7 @@ function extractErrorCode(err: unknown): string | null {
   return null;
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;
 
 const btnPrimary: React.CSSProperties = {
   color: "#fff",

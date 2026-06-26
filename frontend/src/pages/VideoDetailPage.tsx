@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { listConnections } from "../api/social";
 import { getVideoByJobId } from "../api/videos";
 import { VideoCard } from "../components/VideoCard";
+import { card as uiCard } from "../components/ui";
 import type { SocialConnectionDTO, VideoSummaryDTO } from "../types/api";
 
 /**
@@ -67,12 +68,7 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Could not load video.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;
 
 const backLink: React.CSSProperties = {
   color: "#60a5fa",

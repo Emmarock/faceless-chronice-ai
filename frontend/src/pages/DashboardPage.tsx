@@ -194,14 +194,14 @@ function StepRow({ done, title, desc, to, cta }: { done: boolean; title: string;
 
 function RecentPanel({ title, allHref, allLabel, children }: { title: string; allHref: string; allLabel: string; children: React.ReactNode }) {
   return (
-    <div style={card}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+    <div style={{ ...card, minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
         <h3 style={{ margin: 0, fontSize: 16 }}>{title}</h3>
-        <Link to={allHref} style={{ color: "#7c93ff", textDecoration: "none", fontSize: 13 }}>
+        <Link to={allHref} style={{ color: "#7c93ff", textDecoration: "none", fontSize: 13, whiteSpace: "nowrap", flexShrink: 0 }}>
           {allLabel} →
         </Link>
       </div>
-      <div style={{ display: "grid", gap: 8 }}>{children}</div>
+      <div style={{ display: "grid", gap: 8, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -209,7 +209,7 @@ function RecentPanel({ title, allHref, allLabel, children }: { title: string; al
 function RecentRow({ to, label, meta }: { to: string; label: string; meta?: string }) {
   return (
     <Link to={to} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", background: "#0f1115", borderRadius: 6, textDecoration: "none", color: "inherit" }}>
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
       {meta && <span style={{ color: "var(--text-dim)", fontSize: 12, flexShrink: 0 }}>{meta}</span>}
     </Link>
   );
