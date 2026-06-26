@@ -46,6 +46,7 @@ public class TwinLessonPoller {
 
     private final TwinRepository twinRepository;
     private final LessonRepository lessonRepository;
+    private final LessonService lessonService;
     private final HeyGenService heyGenService;
     private final LessonScriptGenerator lessonScriptGenerator;
     private final S3StorageService s3StorageService;
@@ -122,6 +123,9 @@ public class TwinLessonPoller {
             lesson.setStatus(Status.COMPLETED);
             touch(lesson);
             lessonRepository.save(lesson);
+            // Register a publishable Video so the lesson can be cross-posted
+            // through the existing social pipeline.
+            lessonService.ensurePublishableVideo(lesson);
             log.info("Lesson {} complete ({})", lesson.getId(), s3Url);
         } else if (status.isFailed()) {
             failLesson(lesson, "HeyGen render failed: " + status.status());

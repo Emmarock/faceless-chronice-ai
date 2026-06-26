@@ -18,6 +18,7 @@ public record LessonDTO(
         String scriptContent,
         Integer durationSeconds,
         boolean hasVideo,
+        UUID videoId,
         String errorMessage,
         Instant createdOn
 ) {
@@ -31,6 +32,7 @@ public record LessonDTO(
                 .scriptContent(l.getScriptContent())
                 .durationSeconds(l.getDurationSeconds())
                 .hasVideo(l.getVideoUrl() != null && !l.getVideoUrl().isBlank())
+                .videoId(l.getVideoId())
                 .errorMessage(l.getErrorMessage())
                 .createdOn(l.getCreatedOn())
                 .build();
