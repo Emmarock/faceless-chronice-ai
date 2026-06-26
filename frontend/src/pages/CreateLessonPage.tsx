@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createLesson, listTwins } from "../api/tutor";
+import { card as uiCard, inputStyle, buttonStyle } from "../components/ui";
 import type { TwinDTO } from "../types/api";
 
 export function CreateLessonPage() {
@@ -99,12 +100,7 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #2a2d33",
-  borderRadius: 10,
-  padding: 16,
-};
+const card = uiCard;
 
 const label: React.CSSProperties = {
   display: "block",
@@ -113,24 +109,6 @@ const label: React.CSSProperties = {
   marginBottom: 6,
 };
 
-const input: React.CSSProperties = {
-  width: "100%",
-  background: "#0f1115",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "10px 12px",
-  fontSize: 14,
-  boxSizing: "border-box",
-};
+const input = inputStyle;
 
-const btnPrimary: React.CSSProperties = {
-  background: "#3b5bdb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "10px 16px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 600,
-};
+const btnPrimary: React.CSSProperties = buttonStyle("primary");

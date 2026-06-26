@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { cancelScheduledUpload, listScheduledUploads } from "../api/scheduled";
+import { card as uiCard, buttonStyle, PageHeader } from "../components/ui";
 import type { ScheduledUploadDTO, SocialPlatform } from "../types/api";
 
 /**
@@ -47,11 +48,10 @@ export function ScheduledPostsPage() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Scheduled posts</h2>
-      <p style={{ color: "#aaa", marginBottom: 24 }}>
-        Cross-posts you've queued for future publish. Cancel any you no longer want to ship —
-        the scheduler skips cancelled rows on its next tick.
-      </p>
+      <PageHeader
+        title="Scheduled"
+        subtitle="Cross-posts queued for the future. Cancel anything you no longer want to ship — the scheduler skips cancelled rows on its next tick."
+      />
 
       {error && <div style={errorBanner}>{error}</div>}
 
@@ -220,12 +220,7 @@ const list: React.CSSProperties = {
   gap: 12,
 };
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;
 
 const emptyCard: React.CSSProperties = {
   background: "#10131a",
@@ -261,16 +256,7 @@ const metaLabel: React.CSSProperties = {
   minWidth: 60,
 };
 
-const btnSecondary: React.CSSProperties = {
-  background: "transparent",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontSize: 13,
-  textDecoration: "none",
-};
+const btnSecondary: React.CSSProperties = { ...buttonStyle("secondary"), fontSize: 13, textDecoration: "none" };
 
 const btnDanger: React.CSSProperties = {
   background: "transparent",

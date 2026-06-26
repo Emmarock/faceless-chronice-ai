@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createTwin, deleteTwin, listLessons, listTwins } from "../api/tutor";
+import { card as uiCard, inputStyle, buttonStyle } from "../components/ui";
 import type { LessonDTO, TwinDTO } from "../types/api";
 
 // Reject oversized clips client-side before uploading. Kept comfortably under
@@ -512,41 +513,10 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #2a2d33",
-  borderRadius: 10,
-  padding: 16,
-};
+const card = uiCard;
 
-const input: React.CSSProperties = {
-  width: "100%",
-  background: "#0f1115",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "10px 12px",
-  fontSize: 14,
-  boxSizing: "border-box",
-};
+const input = inputStyle;
 
-const btnPrimary: React.CSSProperties = {
-  background: "#3b5bdb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 600,
-};
+const btnPrimary: React.CSSProperties = buttonStyle("primary");
 
-const btnSecondary: React.CSSProperties = {
-  background: "transparent",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontSize: 14,
-};
+const btnSecondary: React.CSSProperties = buttonStyle("secondary");

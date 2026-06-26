@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { listJobProgress, listJobs } from "../api/jobs";
 import { ProgressBar } from "../components/ProgressBar";
+import { card as uiCard, buttonStyle, PageHeader } from "../components/ui";
 import type { JobProgressDTO, JobSummaryDTO } from "../types/api";
 
 // How often to re-fetch progress while at least one job is still running.
@@ -91,21 +92,15 @@ export function JobsListPage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 24,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Your contents</h2>
-        <Link to="/jobs/new" style={btnPrimary}>
-          + New content
-        </Link>
-      </div>
+      <PageHeader
+        title="My content"
+        subtitle="Everything you've generated — drafts, in-progress renders and finished videos."
+        actions={
+          <Link to="/jobs/new" style={btnPrimary}>
+            + New content
+          </Link>
+        }
+      />
 
       {loading ? (
         <div style={{ ...card, color: "#aaa" }}>Loading...</div>
@@ -245,24 +240,9 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Could not load contents.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;
 
-const btnPrimary: React.CSSProperties = {
-  background: "#3b82f6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontWeight: 600,
-  textDecoration: "none",
-  display: "inline-block",
-};
+const btnPrimary: React.CSSProperties = { ...buttonStyle("primary"), textDecoration: "none" };
 
 const btnPager: React.CSSProperties = {
   background: "transparent",

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { listConnections } from "../api/social";
 import { listVideos } from "../api/videos";
 import { VideoCard } from "../components/VideoCard";
+import { card as uiCard, PageHeader } from "../components/ui";
 import type { SocialConnectionDTO, VideoSummaryDTO } from "../types/api";
 
 export function VideosListPage() {
@@ -47,13 +48,10 @@ export function VideosListPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0 }}>Your videos</h2>
-        <p style={{ color: "#888", marginTop: 6 }}>
-          Rendered videos for every job you've completed. Streams from the backend so they
-          play directly here.
-        </p>
-      </div>
+      <PageHeader
+        title="Videos"
+        subtitle="Every rendered video, ready to watch, download or publish to your social accounts."
+      />
 
       {loading ? (
         <div style={{ ...card, color: "#aaa" }}>Loading...</div>
@@ -87,9 +85,4 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Could not load videos.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;

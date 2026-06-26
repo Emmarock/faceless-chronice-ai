@@ -5,6 +5,7 @@ import { listConnections } from "../api/social";
 import { publishVideo } from "../api/videos";
 import { ProgressBar } from "../components/ProgressBar";
 import { PublishModal } from "../components/PublishModal";
+import { card as uiCard, buttonStyle } from "../components/ui";
 import type { LessonDTO, SocialConnectionDTO, VideoPublishRequest } from "../types/api";
 
 /** Coarse percent for the bar — lessons don't report granular progress. */
@@ -136,20 +137,6 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #2a2d33",
-  borderRadius: 10,
-  padding: 16,
-};
+const card = uiCard;
 
-const uploadBtn: React.CSSProperties = {
-  background: "#3b5bdb",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "10px 16px",
-  cursor: "pointer",
-  fontSize: 14,
-  fontWeight: 600,
-};
+const uploadBtn: React.CSSProperties = buttonStyle("primary");

@@ -10,6 +10,7 @@ import {
 import { listConnections } from "../api/social";
 import { Pagination } from "../components/Pagination";
 import { PublishModal } from "../components/PublishModal";
+import { card as uiCard, buttonStyle, PageHeader } from "../components/ui";
 import type {
   AssetSummaryDTO,
   AssetType,
@@ -148,25 +149,15 @@ export function AssetsPage() {
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 16,
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Asset library</h2>
-        <button type="button" style={btnPrimary} onClick={() => setUploadOpen(true)}>
-          + Upload asset
-        </button>
-      </div>
-      <p style={{ color: "#888", fontSize: 13, marginTop: 0, marginBottom: 16 }}>
-        Every asset you generate while creating videos plus anything you upload here. Reuse them
-        directly from any scene's media editor.
-      </p>
+      <PageHeader
+        title="Asset library"
+        subtitle="Every asset you generate while creating videos, plus anything you upload — reuse them directly from any scene's media editor."
+        actions={
+          <button type="button" style={btnPrimary} onClick={() => setUploadOpen(true)}>
+            + Upload asset
+          </button>
+        }
+      />
 
       <div style={filterRow} role="tablist" aria-label="Filter by asset type">
         {FILTERS.map((f) => {
@@ -495,12 +486,7 @@ function extractError(err: unknown): string {
   return err instanceof Error ? err.message : "Something went wrong.";
 }
 
-const card: React.CSSProperties = {
-  background: "#15171b",
-  border: "1px solid #1f2125",
-  borderRadius: 8,
-  padding: 16,
-};
+const card = uiCard;
 
 const tile: React.CSSProperties = {
   background: "#0f1115",
@@ -592,25 +578,9 @@ const flash: React.CSSProperties = {
   marginBottom: 12,
 };
 
-const btnPrimary: React.CSSProperties = {
-  background: "#3b82f6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontWeight: 600,
-};
+const btnPrimary: React.CSSProperties = { ...buttonStyle("primary"), textDecoration: "none" };
 
-const btnSecondary: React.CSSProperties = {
-  background: "transparent",
-  color: "#e6e6e6",
-  border: "1px solid #2a2d33",
-  borderRadius: 6,
-  padding: "8px 14px",
-  cursor: "pointer",
-  fontWeight: 600,
-};
+const btnSecondary: React.CSSProperties = { ...buttonStyle("secondary"), textDecoration: "none" };
 
 const modalBackdrop: React.CSSProperties = {
   position: "fixed",
