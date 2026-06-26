@@ -48,8 +48,8 @@ export function TutorTwinsPage() {
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>AI Tutor</h2>
         <p style={{ color: "#888", marginTop: 6 }}>
-          Train a twin from a short clip of yourself, then generate lessons where your twin
-          teaches any topic in your own likeness and voice.
+          Create a twin from a short clip or photo of yourself, then generate lessons where your
+          twin teaches any topic in your likeness.
         </p>
       </div>
 
@@ -85,6 +85,11 @@ export function TutorTwinsPage() {
                 <div style={{ fontWeight: 600 }}>{t.name}</div>
                 <div style={{ marginTop: 4 }}>
                   <StatusBadge status={t.status} />
+                  {t.ready && (
+                    <span style={{ marginLeft: 8, fontSize: 12, color: t.voiceCloned ? "#5fd28a" : "#9ca3af" }}>
+                      {t.voiceCloned ? "· cloned voice" : "· default voice"}
+                    </span>
+                  )}
                   {t.errorMessage && <span style={{ color: "#f1a5b0", marginLeft: 8, fontSize: 13 }}>{t.errorMessage}</span>}
                 </div>
               </div>
@@ -134,6 +139,7 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
   const [name, setName] = useState("");
   const [blob, setBlob] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIsImage, setPreviewIsImage] = useState(false);
   const [recording, setRecording] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -159,6 +165,7 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
     onError(""); // clear any prior size error on a valid selection
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setBlob(b);
+    setPreviewIsImage(b.type.startsWith("image"));
     setPreviewUrl(URL.createObjectURL(b));
   };
 
@@ -209,6 +216,7 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
       setBlob(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      setPreviewIsImage(false);
       onCreated();
     } catch (err) {
       onError(extractError(err));
@@ -221,8 +229,10 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
     <div style={card}>
       <h3 style={{ marginTop: 0 }}>Create a twin</h3>
       <p style={{ color: "#888", marginTop: 0 }}>
-        Record a 15–60 second clip looking at the camera and speaking naturally, or upload an
-        existing one. We&apos;ll train your avatar and clone your voice.
+        Record a clip of yourself speaking for ~30 seconds — we capture your likeness as a
+        talking avatar and clone your voice from the audio. A well-lit, front-facing shot in a
+        quiet room works best. (Uploading a photo instead skips voice cloning and uses a preset
+        voice.)
       </p>
 
       <input
@@ -233,15 +243,21 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
       />
 
       <div style={{ marginTop: 12, background: "#0f1115", borderRadius: 8, overflow: "hidden" }}>
+        {/* Live recording always uses the <video> element (holds the camera stream). */}
         <video
           ref={videoRef}
-          src={!recording && previewUrl ? previewUrl : undefined}
-          controls={!recording && !!previewUrl}
           playsInline
-          style={{ width: "100%", maxHeight: 320, display: recording || previewUrl ? "block" : "none", background: "#000" }}
+          muted
+          style={{ width: "100%", maxHeight: 320, display: recording ? "block" : "none", background: "#000" }}
         />
+        {!recording && previewUrl && previewIsImage && (
+          <img src={previewUrl} alt="Selected" style={{ width: "100%", maxHeight: 320, objectFit: "contain", background: "#000", display: "block" }} />
+        )}
+        {!recording && previewUrl && !previewIsImage && (
+          <video src={previewUrl} controls playsInline style={{ width: "100%", maxHeight: 320, background: "#000", display: "block" }} />
+        )}
         {!recording && !previewUrl && (
-          <div style={{ padding: 24, color: "#666", textAlign: "center" }}>No clip yet</div>
+          <div style={{ padding: 24, color: "#666", textAlign: "center" }}>No clip or photo yet</div>
         )}
       </div>
 
@@ -257,8 +273,8 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
         )}
 
         <label style={{ ...btnSecondary, display: "inline-flex", alignItems: "center", cursor: "pointer" }}>
-          Upload file
-          <input type="file" accept="video/*" onChange={onFile} style={{ display: "none" }} disabled={recording || submitting} />
+          Upload video/photo
+          <input type="file" accept="video/*,image/*" onChange={onFile} style={{ display: "none" }} disabled={recording || submitting} />
         </label>
 
         <button style={btnPrimary} onClick={submit} disabled={!blob || recording || submitting}>
@@ -267,7 +283,7 @@ function TwinOnboarding({ onCreated, onError }: { onCreated: () => void; onError
       </div>
 
       <p style={{ color: "#666", fontSize: 12, marginTop: 10, marginBottom: 0 }}>
-        MP4 / WebM / MOV · up to {MAX_VIDEO_MB}MB
+        MP4 / WebM / MOV or JPG / PNG · up to {MAX_VIDEO_MB}MB
         {blob ? ` · selected ${formatMb(blob.size)}` : ""}
       </p>
     </div>

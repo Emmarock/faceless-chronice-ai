@@ -211,6 +211,7 @@ export interface TwinDTO {
   name: string;
   status: TutorStatus;
   ready: boolean;
+  voiceCloned: boolean;
   errorMessage?: string | null;
   createdOn: string;
 }
