@@ -126,12 +126,16 @@ public class HeyGenService {
         String audioAssetId = firstNonBlank(asset.path("asset_id").asText(null), asset.path("id").asText(null));
         String audioUrl = asset.path("url").asText(null);
 
-        // 2) Request the clone.
+        // 2) Request the clone. HeyGen's v3 clone endpoint requires a field
+        //    named "audio" (per its invalid_parameter error). We pass the
+        //    uploaded asset reference there — asset id preferred, else the url.
         Map<String, Object> body = new HashMap<>();
         body.put("name", name);
-        if (audioAssetId != null) body.put("audio_asset_id", audioAssetId);
-        else if (audioUrl != null) body.put("audio_url", audioUrl);
-        else throw new ExternalApiException("Audio upload returned neither an asset id nor a url: " + asset);
+        String audioRef = firstNonBlank(audioAssetId, audioUrl);
+        if (audioRef == null) {
+            throw new ExternalApiException("Audio upload returned neither an asset id nor a url: " + asset);
+        }
+        body.put("audio", audioRef);
 
         JsonNode data = post(baseUrl + "/v3/voices/clone", body);
         String voiceId = firstNonBlank(
